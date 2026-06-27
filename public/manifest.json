@@ -1,0 +1,35 @@
+{
+  "name": "Acopio VE — Centros de Acopio Venezuela",
+  "short_name": "Acopio VE",
+  "description": "Mapa en tiempo real de centros de acopio post-terremoto en Venezuela",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0D47A1",
+  "theme_color": "#1565C0",
+  "orientation": "any",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "social"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Agregar Centro",
+      "short_name": "Agregar",
+      "description": "Registra un nuevo centro de acopio",
+      "url": "/?action=nuevo"
+    }
+  ]
+}

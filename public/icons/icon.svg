@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Fondo -->
+  <rect width="512" height="512" rx="96" fill="#0D47A1"/>
+  <!-- Casa / refugio -->
+  <polygon points="256,80 440,210 400,210 400,400 112,400 112,210 72,210" fill="#FFC107"/>
+  <!-- Puerta -->
+  <rect x="216" y="290" width="80" height="110" rx="6" fill="#0D47A1"/>
+  <!-- Cruz de ayuda -->
+  <rect x="235" y="155" width="42" height="120" rx="6" fill="white"/>
+  <rect x="195" y="195" width="122" height="42" rx="6" fill="white"/>
+</svg>

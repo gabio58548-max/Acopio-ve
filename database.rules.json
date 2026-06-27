@@ -1,0 +1,37 @@
+{
+  "rules": {
+    "centros": {
+      ".read": true,
+
+      ".indexOn": ["estado", "municipio", "capacidad", "creadoEn"],
+
+      "$centroId": {
+        ".write": true,
+
+        ".validate": "newData.hasChildren(['nombre','estado','municipio','direccion','lat','lng','capacidad','insumos','actualizadoEn'])",
+
+        "nombre":       { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120" },
+        "estado":       { ".validate": "newData.isString() && newData.val().length > 0" },
+        "municipio":    { ".validate": "newData.isString() && newData.val().length > 0" },
+        "direccion":    { ".validate": "newData.isString() && newData.val().length > 0" },
+        "lat":          { ".validate": "newData.isNumber() && newData.val() >= -90  && newData.val() <= 90" },
+        "lng":          { ".validate": "newData.isNumber() && newData.val() >= -180 && newData.val() <= 180" },
+        "capacidad":    { ".validate": "newData.val() === 'disponible' || newData.val() === 'parcial' || newData.val() === 'lleno'" },
+        "insumos":      { ".validate": "newData.isString() || newData.hasChildren()" },
+        "contacto":     { ".validate": "!newData.exists() || newData.isString()" },
+        "responsable":  { ".validate": "!newData.exists() || newData.isString()" },
+        "horario":      { ".validate": "!newData.exists() || newData.isString()" },
+        "notas":        { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 500)" },
+        "creadoEn":     { ".validate": "!newData.exists() || newData.isNumber()" },
+        "actualizadoEn":{ ".validate": "newData.isNumber()" },
+
+        "$other": { ".validate": false }
+      }
+    },
+
+    "$other": {
+      ".read":  false,
+      ".write": false
+    }
+  }
+}

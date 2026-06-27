@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1565C0">
+  <meta name="description" content="Mapa en tiempo real de centros de acopio post-terremoto en Venezuela.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Acopio VE">
+
+  <title>Acopio VE — Centros de Acopio Venezuela</title>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <!-- Leaflet local (sin dependencia CDN) -->
+  <link rel="stylesheet" href="lib/leaflet.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ═══ HEADER ═══ -->
+  <header id="header">
+    <div class="header-left">
+      <div class="logo-wrap">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="8" fill="#FFC107"/>
+          <polygon points="16,4 28,13 24,13 24,26 8,26 8,13 4,13" fill="#1565C0"/>
+          <rect x="13" y="18" width="6" height="8" fill="#FFC107"/>
+        </svg>
+      </div>
+      <div class="header-titles">
+        <h1>Acopio VE</h1>
+        <span class="subtitle">Centros de Ayuda · Venezuela</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <button id="btn-filtros" class="btn btn-ghost" title="Mostrar filtros">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+        <span>Filtros</span>
+        <span id="filtros-badge" class="filtros-badge hidden">0</span>
+      </button>
+      <button id="btn-nuevo" class="btn btn-primary" title="Registrar nuevo centro">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Agregar</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ═══ MAIN LAYOUT ═══ -->
+  <div id="app-layout">
+
+    <aside id="sidebar" class="sidebar" aria-hidden="true">
+      <div class="sidebar-header">
+        <h2>Filtros</h2>
+        <button id="btn-cerrar-sidebar" class="btn-icon-only" aria-label="Cerrar filtros">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="sidebar-stats">
+        <div class="stat">
+          <span class="stat-num" id="stat-total">0</span>
+          <span class="stat-lbl">total</span>
+        </div>
+        <div class="stat stat-verde">
+          <span class="stat-num" id="stat-disponibles">0</span>
+          <span class="stat-lbl">disponibles</span>
+        </div>
+        <div class="stat stat-amarillo">
+          <span class="stat-num" id="stat-parciales">0</span>
+          <span class="stat-lbl">parciales</span>
+        </div>
+        <div class="stat stat-rojo">
+          <span class="stat-num" id="stat-llenos">0</span>
+          <span class="stat-lbl">llenos</span>
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <div class="form-group">
+          <label for="filtro-estado">Estado</label>
+          <select id="filtro-estado">
+            <option value="">Todos los estados</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="filtro-municipio">Municipio</label>
+          <input type="text" id="filtro-municipio" placeholder="Buscar municipio...">
+        </div>
+        <div class="form-group">
+          <label>Capacidad</label>
+          <div class="check-group">
+            <label class="check-label"><input type="checkbox" class="filtro-capacidad" value="disponible" checked><span class="badge badge-verde">Disponible</span></label>
+            <label class="check-label"><input type="checkbox" class="filtro-capacidad" value="parcial" checked><span class="badge badge-amarillo">Parcial</span></label>
+            <label class="check-label"><input type="checkbox" class="filtro-capacidad" value="lleno" checked><span class="badge badge-rojo">Lleno</span></label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Insumos que aceptan</label>
+          <div id="filtro-insumos" class="check-group check-wrap"></div>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button id="btn-limpiar-filtros" class="btn btn-ghost full-width">Limpiar filtros</button>
+      </div>
+
+      <div id="lista-centros">
+        <div class="lista-header">
+          <h3>Centros <span id="lista-count">(0)</span></h3>
+        </div>
+        <div id="lista-items"></div>
+      </div>
+    </aside>
+
+    <div id="map-wrap">
+      <div id="map"></div>
+
+      <!-- Overlay de carga con retry -->
+      <div id="loading-overlay" class="loading-overlay">
+        <div id="loading-state">
+          <div class="spinner"></div>
+          <p id="loading-msg">Cargando centros...</p>
+        </div>
+        <div id="error-state" class="hidden">
+          <p class="error-icon">⚠️</p>
+          <p id="error-msg">No se pudo conectar.</p>
+          <button id="btn-reintentar" class="btn btn-primary">Reintentar</button>
+        </div>
+      </div>
+
+      <div id="offline-banner" class="offline-banner hidden">Sin conexión — mostrando datos en caché</div>
+
+      <button id="fab-nuevo" class="fab" title="Agregar centro" aria-label="Agregar nuevo centro">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ═══ PANEL DETALLE ═══ -->
+  <div id="panel-centro" class="panel-centro hidden" role="dialog" aria-modal="true">
+    <div class="panel-drag-handle"></div>
+    <div class="panel-scroll">
+      <div class="panel-head">
+        <div class="panel-title-wrap">
+          <h2 id="p-nombre">—</h2>
+          <span id="p-badge" class="badge">—</span>
+        </div>
+        <button id="btn-cerrar-panel" class="btn-icon-only">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="panel-body">
+        <div class="info-row"><span class="info-icon">📍</span><div><div id="p-direccion">—</div><div class="muted" id="p-ubicacion">—</div></div></div>
+        <div class="info-row"><span class="info-icon">📦</span><div><div class="info-label">Acepta:</div><div id="p-insumos" class="tags-wrap">—</div></div></div>
+        <div class="info-row"><span class="info-icon">📞</span><div><div id="p-contacto">—</div><div class="muted" id="p-responsable"></div></div></div>
+        <div class="info-row" id="p-horario-row"><span class="info-icon">🕐</span><div id="p-horario">—</div></div>
+        <div class="info-row" id="p-notas-row"><span class="info-icon">📝</span><div id="p-notas">—</div></div>
+        <div class="info-row"><span class="info-icon">🔄</span><div class="muted" id="p-actualizado">—</div></div>
+      </div>
+      <div class="panel-foot">
+        <button id="btn-panel-actualizar" class="btn btn-primary full-width">Actualizar Estado</button>
+        <button id="btn-panel-compartir" class="btn btn-ghost full-width">Compartir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL: NUEVO CENTRO ═══ -->
+  <div id="modal-nuevo" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" id="backdrop-nuevo"></div>
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2>Registrar Centro de Acopio</h2>
+        <button id="btn-cerrar-nuevo" class="btn-icon-only">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="form-nuevo" novalidate>
+          <div class="form-group">
+            <label for="n-nombre">Nombre del centro <span class="req">*</span></label>
+            <input type="text" id="n-nombre" required maxlength="120" placeholder="Ej: Centro Comunitario El Limón">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="n-estado">Estado <span class="req">*</span></label>
+              <select id="n-estado" required><option value="">Seleccionar...</option></select>
+            </div>
+            <div class="form-group">
+              <label for="n-municipio">Municipio <span class="req">*</span></label>
+              <input type="text" id="n-municipio" required maxlength="80" placeholder="Ej: Girardot">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="n-direccion">Dirección completa <span class="req">*</span></label>
+            <textarea id="n-direccion" required rows="2" maxlength="300" placeholder="Calle, sector, referencias..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Ubicación en el mapa <span class="req">*</span></label>
+            <div class="loc-controls">
+              <button type="button" id="btn-mi-ubicacion" class="btn btn-ghost btn-sm">📍 Usar mi GPS</button>
+              <span class="muted">o haz clic en el mapa</span>
+            </div>
+            <div id="loc-selecting-hint" class="loc-hint hidden">Haz clic en el mapa para fijar la ubicación...</div>
+            <div class="form-row mt-sm">
+              <div class="form-group">
+                <label for="n-lat">Latitud</label>
+                <input type="number" id="n-lat" step="0.000001" min="-90" max="90" placeholder="10.4806">
+              </div>
+              <div class="form-group">
+                <label for="n-lng">Longitud</label>
+                <input type="number" id="n-lng" step="0.000001" min="-180" max="180" placeholder="-66.9036">
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Capacidad actual <span class="req">*</span></label>
+            <div class="radio-group">
+              <label class="radio-label"><input type="radio" name="n-capacidad" value="disponible" required><span class="badge badge-verde">Disponible</span><span class="radio-desc">Recibe donaciones</span></label>
+              <label class="radio-label"><input type="radio" name="n-capacidad" value="parcial"><span class="badge badge-amarillo">Parcial</span><span class="radio-desc">Recibe con límites</span></label>
+              <label class="radio-label"><input type="radio" name="n-capacidad" value="lleno"><span class="badge badge-rojo">Lleno</span><span class="radio-desc">No recibe más</span></label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Insumos que reciben <span class="req">*</span></label>
+            <div id="n-insumos" class="check-grid"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="n-contacto">Teléfono / Contacto</label>
+              <input type="text" id="n-contacto" placeholder="+58 424 1234567">
+            </div>
+            <div class="form-group">
+              <label for="n-responsable">Organización</label>
+              <input type="text" id="n-responsable" placeholder="Cruz Roja, Alcaldía...">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="n-horario">Horario de atención</label>
+            <input type="text" id="n-horario" placeholder="Lun-Dom 8am-6pm">
+          </div>
+          <div class="form-group">
+            <label for="n-notas">Notas adicionales</label>
+            <textarea id="n-notas" rows="2" maxlength="500" placeholder="Necesidades urgentes, instrucciones..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-foot">
+        <button type="button" id="btn-cancelar-nuevo" class="btn btn-ghost">Cancelar</button>
+        <button type="submit" form="form-nuevo" class="btn btn-primary" id="btn-submit-nuevo">Registrar Centro</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL: ACTUALIZAR ESTADO ═══ -->
+  <div id="modal-actualizar" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" id="backdrop-actualizar"></div>
+    <div class="modal-box modal-sm">
+      <div class="modal-head">
+        <h2>Actualizar Estado</h2>
+        <button id="btn-cerrar-actualizar" class="btn-icon-only">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="act-nombre-label" class="muted mb-md"></p>
+        <form id="form-actualizar" novalidate>
+          <input type="hidden" id="act-id">
+          <div class="form-group">
+            <label>Nueva capacidad <span class="req">*</span></label>
+            <div class="radio-group">
+              <label class="radio-label"><input type="radio" name="act-capacidad" value="disponible" required><span class="badge badge-verde">Disponible</span></label>
+              <label class="radio-label"><input type="radio" name="act-capacidad" value="parcial"><span class="badge badge-amarillo">Parcial</span></label>
+              <label class="radio-label"><input type="radio" name="act-capacidad" value="lleno"><span class="badge badge-rojo">Lleno</span></label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Insumos que reciben</label>
+            <div id="act-insumos" class="check-grid"></div>
+          </div>
+          <div class="form-group">
+            <label for="act-contacto">Contacto actualizado</label>
+            <input type="text" id="act-contacto" placeholder="+58 424 1234567">
+          </div>
+          <div class="form-group">
+            <label for="act-notas">Nota de actualización</label>
+            <textarea id="act-notas" rows="2" maxlength="300" placeholder="Qué cambió, necesidades urgentes..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-foot">
+        <button type="button" id="btn-cancelar-actualizar" class="btn btn-ghost">Cancelar</button>
+        <button type="submit" form="form-actualizar" class="btn btn-primary" id="btn-submit-actualizar">Guardar Cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TOAST ═══ -->
+  <div id="toast-wrap" aria-live="polite"></div>
+
+  <!-- ═══ SCRIPTS: todo local, sin CDN ═══ -->
+  <script src="lib/firebase-app.js"></script>
+  <script src="lib/firebase-database.js"></script>
+  <script src="lib/leaflet.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
