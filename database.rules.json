@@ -24,8 +24,18 @@
         "notas":        { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 500)" },
         "creadoEn":     { ".validate": "!newData.exists() || newData.isNumber()" },
         "actualizadoEn":{ ".validate": "newData.isNumber()" },
+        "verificado":   { ".validate": "!newData.exists() || newData.isBoolean()" },
+        "reportes":     { ".validate": "!newData.exists() || newData.isNumber()" },
 
         "$other": { ".validate": false }
+      }
+    },
+
+    "otps": {
+      "$emailKey": {
+        ".read":  true,
+        ".write": true,
+        ".validate": "!newData.exists() || newData.hasChildren(['code','expiry'])"
       }
     },
 

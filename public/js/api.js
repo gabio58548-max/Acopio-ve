@@ -124,32 +124,79 @@ const API = (() => {
   }
 
   /* ══════════════════════════════════════════
-     REAL-TIME — mejora opcional vía Firebase SDK
+     REAL-TIME — EventSource (SSE) sobre REST
+     HTTP puro, reconecta automáticamente,
+     funciona en móvil aunque la pantalla se bloquee
      ══════════════════════════════════════════ */
-
-  /**
-   * Escuchar cambios en tiempo real.
-   * @returns {Function|null}  función para desuscribirse, o null si SDK no disponible
-   */
   function escucharCambios(callback) {
-    if (!sdkListo || !db) return null;
+    if (!("EventSource" in window)) return null;
 
+    let es = null;
+    let activo = true;
+
+    function conectar() {
+      if (!activo) return;
+      es = new EventSource(`${BASE}/centros.json`);
+
+      es.addEventListener("put", e => {
+        if (!activo) return;
+        try {
+          const msg = JSON.parse(e.data);
+          // msg.path === "/" → datos completos; otro path → cambio parcial, recargamos todo
+          if (msg.path === "/" && msg.data) {
+            const centros = Object.entries(msg.data).map(([id, c]) => ({ id, ...c }));
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), centros })); } catch (_) {}
+            callback(centros);
+          } else {
+            // Cambio parcial: pedimos el snapshot completo
+            fetch(`${BASE}/centros.json`, { cache: "no-store" })
+              .then(r => r.json())
+              .then(val => {
+                if (!val || !activo) return;
+                const centros = Object.entries(val).map(([id, c]) => ({ id, ...c }));
+                try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), centros })); } catch (_) {}
+                callback(centros);
+              }).catch(() => {});
+          }
+        } catch (_) {}
+      });
+
+      es.addEventListener("patch", e => {
+        if (!activo) return;
+        // Patch parcial → recargamos snapshot completo para simplicidad
+        fetch(`${BASE}/centros.json`, { cache: "no-store" })
+          .then(r => r.json())
+          .then(val => {
+            if (!val || !activo) return;
+            const centros = Object.entries(val).map(([id, c]) => ({ id, ...c }));
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), centros })); } catch (_) {}
+            callback(centros);
+          }).catch(() => {});
+      });
+
+      es.onerror = () => {
+        es.close();
+        if (activo) setTimeout(conectar, 3000); // reconectar en 3s
+      };
+    }
+
+    conectar();
+    return () => { activo = false; if (es) es.close(); };
+  }
+
+  /* ── Firebase SDK (ya no necesario, se conserva por compatibilidad) ── */
+  function escucharCambiosSDK(callback) {
+    if (!sdkListo || !db) return null;
     const ref = db.ref("centros");
     ref.on("value",
       snap => {
         const val = snap.val() || {};
         const centros = Object.entries(val).map(([id, c]) => ({ id, ...c }));
-        try {
-          localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), centros }));
-        } catch (_) {}
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), centros })); } catch (_) {}
         callback(centros);
       },
-      err => {
-        console.warn("[API] Real-time error:", err.message);
-        // No propagamos el error — el REST polling cubre esto
-      }
+      err => console.warn("[API] SDK real-time error:", err.message)
     );
-
     return () => { try { ref.off("value"); } catch (_) {} };
   }
 
@@ -194,12 +241,33 @@ const API = (() => {
     return obj;
   }
 
+  /* ── Reportar problema con un centro ── */
+  async function reportarCentro(id) {
+    const url = `${BASE}/centros/${id}/reportes.json`;
+    const res  = await fetch(url);
+    const prev = (await res.json()) || 0;
+    await fetch(url, {
+      method:  "PUT",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(prev + 1)
+    });
+    invalidarCache();
+  }
+
+  async function eliminarCentro(id) {
+    const res = await fetch(`${BASE}/centros/${id}.json`, { method: "DELETE" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    invalidarCache();
+  }
+
   return {
     initSDK,
     cargarCentros,
     cargarCentrosCache,
     crearCentro,
     actualizarCentro,
-    escucharCambios
+    eliminarCentro,
+    escucharCambios,
+    reportarCentro
   };
 })();

@@ -69,3 +69,36 @@ const ESTADOS_VE = [
 /* Centro geográfico de Venezuela + zoom inicial */
 const VE_CENTER = [8.0, -66.5];
 const VE_ZOOM   = 6;
+
+/* ────────────────────────────────────────────────
+   CONFIGURACIÓN DE OPERADORES
+   ────────────────────────────────────────────────
+   Para habilitar el envío de código por correo:
+   1. Crea cuenta gratuita en https://www.emailjs.com
+   2. Conecta tu Gmail como "Email Service"
+   3. Crea una plantilla con variables: {{to_email}} y {{otp_code}}
+   4. Copia los IDs aquí abajo
+   Sin configurar → el código aparece en pantalla (modo prueba)
+   ──────────────────────────────────────────────── */
+// Credenciales privadas — definidas en config.local.js (no incluido en git)
+// Copia config.local.example.js → config.local.js y rellena tus valores
+let EMAILJS_PUBLIC_KEY  = null;
+let EMAILJS_SERVICE_ID  = null;
+let EMAILJS_TEMPLATE_ID = null;
+let ADMIN_EMAIL    = null;
+let ADMIN_PASSWORD = null;
+
+/* Correos autorizados como operadores (reciben OTP por correo) */
+const OPERADORES_EMAILS = [
+  // Agrega correos de otros operadores aquí
+];
+
+/* ────────────────────────────────────────────────
+   FOTOS — Google Drive via Apps Script
+   ────────────────────────────────────────────────
+   1. Ve a script.google.com → Nuevo proyecto
+   2. Pega el código de upload-fotos.gs
+   3. Despliega como Web App (Ejecutar como: Yo, Acceso: Cualquiera)
+   4. Copia la URL del Web App aquí
+   ──────────────────────────────────────────────── */
+const DRIVE_UPLOAD_URL = ""; // Pega aquí la URL de tu Apps Script Web App

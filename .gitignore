@@ -16,3 +16,6 @@ Thumbs.db
 
 # No subir al repo público (tiene datos sensibles o de prueba)
 # datos-ejemplo.json  ← descomenta si no quieres subir datos de prueba
+
+# Credenciales privadas
+public/js/config.local.js

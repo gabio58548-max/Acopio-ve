@@ -1,36 +1,34 @@
 /**
- * ACOPIO VE — Service Worker
- * Cache-first para todos los assets (todos son locales, sin CDN).
+ * ACOPIO VE — Service Worker v19
+ * Estrategia:
+ *   - App (HTML/JS/CSS): NETWORK-FIRST → siempre código fresco
+ *   - Librerías locales (Firebase SDK, iconos): CACHE-FIRST → carga rápida
+ *   - CDN externas (MapLibre GL, QRCode): CACHE-FIRST → disponibles offline
+ *   - Firebase RTDB y Storage: siempre red, nunca caché
  */
 
-const CACHE = "acopio-ve-v2";
+const CACHE = "acopio-ve-v19";
 
-const ASSETS = [
-  "/",
-  "/index.html",
-  "/css/style.css",
-  "/js/config.js",
-  "/js/api.js",
-  "/js/map.js",
-  "/js/app.js",
-  "/lib/leaflet.js",
-  "/lib/leaflet.css",
+const CACHE_FIRST_LOCAL = [
   "/lib/firebase-app.js",
   "/lib/firebase-database.js",
-  "/lib/images/marker-icon.png",
-  "/lib/images/marker-icon-2x.png",
-  "/lib/images/marker-shadow.png",
-  "/lib/images/layers.png",
-  "/lib/images/layers-2x.png",
-  "/manifest.json",
   "/icons/icon-192.png",
-  "/icons/icon-512.png"
+  "/icons/icon-512.png",
+  "/manifest.json"
+];
+
+// CDN externas que queremos cachear para uso offline
+const CACHE_FIRST_CDN = [
+  "https://unpkg.com/maplibre-gl@4.5.2/dist/maplibre-gl.js",
+  "https://unpkg.com/maplibre-gl@4.5.2/dist/maplibre-gl.css",
+  "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js",
+  "https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"
 ];
 
 self.addEventListener("install", e => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll(ASSETS))
+      .then(c => c.addAll(CACHE_FIRST_LOCAL))
       .then(() => self.skipWaiting())
   );
 });
@@ -46,34 +44,51 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
 
-  // Firebase RTDB — siempre red (datos en tiempo real)
-  if (url.hostname.includes("firebaseio.com") || url.hostname.includes("firebasedatabase.app")) {
-    return; // sin interceptar
+  if (url.hostname !== self.location.hostname) {
+    // CDN externas conocidas → cache-first (disponibles offline tras primera visita)
+    if (CACHE_FIRST_CDN.includes(e.request.url)) {
+      e.respondWith(
+        caches.match(e.request).then(cached => cached ||
+          fetch(e.request).then(res => {
+            if (res.ok) {
+              const clone = res.clone();
+              caches.open(CACHE).then(c => c.put(e.request, clone));
+            }
+            return res;
+          })
+        )
+      );
+    }
+    // Resto de externos (Firebase RTDB, ESRI tiles, Nominatim): browser los maneja
+    return;
   }
 
-  // Tiles OSM — network-first con fallback cache
-  if (url.hostname.includes("tile.openstreetmap.org")) {
+  const path = url.pathname;
+
+  // Librerías locales pesadas — cache-first
+  if (CACHE_FIRST_LOCAL.includes(path)) {
     e.respondWith(
-      fetch(e.request)
-        .then(res => {
-          caches.open(CACHE).then(c => c.put(e.request, res.clone()));
-          return res;
-        })
-        .catch(() => caches.match(e.request))
+      caches.match(e.request).then(cached => cached || fetch(e.request))
     );
     return;
   }
 
-  // Todo lo demás (assets locales) — cache-first
+  // Todo lo demás (index.html, app.js, map.js, style.css…) — NETWORK-FIRST
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+    fetch(e.request)
+      .then(res => {
+        if (res.ok && e.request.method === "GET") {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
         return res;
-      }).catch(() => {
-        if (e.request.mode === "navigate") return caches.match("/index.html");
-      });
-    })
+      })
+      .catch(() => caches.match(e.request)
+        .then(cached => cached || (
+          e.request.mode === "navigate"
+            ? caches.match("/index.html")
+            : new Response("Sin conexión", { status: 503 })
+        ))
+      )
   );
 });
