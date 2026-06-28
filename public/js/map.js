@@ -1,17 +1,20 @@
 /**
- * ACOPIO VE — Módulo de mapa (MapLibre GL JS — API compatible con Mapbox, sin API key)
- * Tiles: OpenFreeMap (vectoriales, gratuitos, sin registro)
- * Satélite: ESRI World Imagery (gratuito, sin registro)
+ * ACOPIO VE — Módulo de mapa (MapLibre GL JS)
+ *
+ * Renderizado: capas GeoJSON nativas (GPU) + clustering automático.
+ * Los marcadores DOM individuales se eliminaron — soporta miles de puntos.
  */
 
 const MapaAcopio = (() => {
-  let mapa        = null;
-  let marcadores  = {};   // id → { marker, el, centro }
-  let marcadorTemp = null;
-  let popupActual  = null;
-  let modoSeleccion = false;
-  let onClickMap    = null;
-  let esSatelite    = false;
+  let mapa           = null;
+  let centrosMap     = {};      // id → centro completo
+  let filtradosIds   = new Set();
+  let marcadorTemp   = null;
+  let popupActual    = null;
+  let modoSeleccion  = false;
+  let onClickMap     = null;
+  let esSatelite     = false;
+  let capasListas    = false;
 
   const COLORES = {
     disponible: "#27AE60",
@@ -24,38 +27,40 @@ const MapaAcopio = (() => {
     lleno:      "Lleno"
   };
 
-  // MapLibre usa [lng, lat]; VE_CENTER del config.js es [lat, lng]
   const VE_LNG_LAT = [VE_CENTER[1], VE_CENTER[0]];
 
   const STYLE_MAPA = "https://tiles.openfreemap.org/styles/bright";
-
-  const STYLE_SAT = {
+  const STYLE_SAT  = {
     version: 8,
     sources: {
       esri: {
         type: "raster",
         tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
-        tileSize: 256,
-        maxzoom: 19,
+        tileSize: 256, maxzoom: 19,
         attribution: "© Esri, Maxar, Earthstar Geographics"
       }
     },
     layers: [{ id: "esri-sat", type: "raster", source: "esri" }]
   };
 
-  function colorPara(cap) { return COLORES[cap] || COLORES.parcial; }
+  /* ── GeoJSON helpers ── */
+  function vacio() { return { type: "FeatureCollection", features: [] }; }
 
-  /* ── Elemento DOM del marcador (pin SVG) ── */
-  function crearElMarcador(cap, opacidad = 1) {
-    const c = colorPara(cap);
-    const el = document.createElement("div");
-    el.className = "mbx-pin";
-    el.style.opacity = opacidad;
-    el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
-      <path d="M14 0C6.27 0 0 6.27 0 14c0 9.33 14 22 14 22S28 23.33 28 14C28 6.27 21.73 0 14 0z" fill="${c}"/>
-      <circle cx="14" cy="14" r="5.5" fill="white"/>
-    </svg>`;
-    return el;
+  function toFeature(c) {
+    return {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [c.lng, c.lat] },
+      properties: {
+        id:        c.id,
+        nombre:    c.nombre    || "",
+        estado:    c.estado    || "",
+        municipio: c.municipio || "",
+        direccion: c.direccion || "",
+        capacidad: c.capacidad || "parcial",
+        contacto:  c.contacto  || "",
+        horario:   c.horario   || ""
+      }
+    };
   }
 
   /* ── Escape HTML ── */
@@ -89,8 +94,149 @@ const MapaAcopio = (() => {
       <div class="popup-nombre">${escHtml(centro.nombre)}</div>
       <div class="popup-dir">${escHtml(centro.direccion)}</div>
       ${insumosHTML}${contactoHTML}${horarioHTML}
-      <button class="popup-btn" onclick="App.abrirPanel('${centro.id}')">Ver detalle completo →</button>
+      <button class="popup-btn" onclick="App.abrirPanel('${escHtml(centro.id)}')">Ver detalle completo →</button>
     </div>`;
+  }
+
+  /* ── Añadir fuentes y capas al mapa ── */
+  function aplicarCapas() {
+    if (!mapa) return;
+
+    // Limpiar si ya existían (toggle satélite reconstruye todo)
+    ["clusters","cluster-count","punto-activo","punto-dim"].forEach(id => {
+      try { if (mapa.getLayer(id)) mapa.removeLayer(id); } catch (_) {}
+    });
+    ["centros-active","centros-dim"].forEach(id => {
+      try { if (mapa.getSource(id)) mapa.removeSource(id); } catch (_) {}
+    });
+
+    // Fuente principal: centros filtrados con clustering
+    mapa.addSource("centros-active", {
+      type: "geojson",
+      data: vacio(),
+      cluster: true,
+      clusterMaxZoom: 11,
+      clusterRadius: 50
+    });
+
+    // Fuente secundaria: centros NO filtrados (sin clustering)
+    mapa.addSource("centros-dim", {
+      type: "geojson",
+      data: vacio()
+    });
+
+    // Capa 1: puntos opacos (no filtrados)
+    try {
+      mapa.addLayer({
+        id: "punto-dim",
+        type: "circle",
+        source: "centros-dim",
+        paint: {
+          "circle-radius": 5,
+          "circle-color": "#999999",
+          "circle-opacity": 0.18,
+          "circle-stroke-width": 0
+        }
+      });
+    } catch (_) {}
+
+    // Capa 2: burbujas de cluster
+    try {
+      mapa.addLayer({
+        id: "clusters",
+        type: "circle",
+        source: "centros-active",
+        filter: ["has", "point_count"],
+        paint: {
+          "circle-color": [
+            "step", ["get", "point_count"],
+            "#27AE60", 15, "#F39C12", 40, "#E74C3C"
+          ],
+          "circle-radius": [
+            "step", ["get", "point_count"],
+            22, 15, 30, 40, 38
+          ],
+          "circle-stroke-width": 3,
+          "circle-stroke-color": "rgba(255,255,255,0.35)"
+        }
+      });
+    } catch (_) {}
+
+    // Capa 3: número dentro del cluster — se omite para evitar dependencia de fuentes de glifos
+
+    // Capa 4: puntos individuales (sin cluster) — crítica
+    try {
+      mapa.addLayer({
+        id: "punto-activo",
+        type: "circle",
+        source: "centros-active",
+        filter: ["!", ["has", "point_count"]],
+        paint: {
+          "circle-radius": [
+            "interpolate", ["linear"], ["zoom"],
+            8, 6,
+            14, 10
+          ],
+          "circle-color": [
+            "match", ["get", "capacidad"],
+            "disponible", "#27AE60",
+            "parcial",    "#F39C12",
+            "lleno",      "#E74C3C",
+            "#F39C12"
+          ],
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff"
+        }
+      });
+    } catch (_) {}
+
+    /* ── Interacciones ── */
+    mapa.on("click", "clusters", async e => {
+      const feat = mapa.queryRenderedFeatures(e.point, { layers: ["clusters"] })[0];
+      if (!feat) return;
+      try {
+        const zoom = await mapa.getSource("centros-active").getClusterExpansionZoom(feat.properties.cluster_id);
+        mapa.easeTo({ center: feat.geometry.coordinates, zoom: zoom + 0.5, duration: 400 });
+      } catch (_) {}
+    });
+
+    mapa.on("click", "punto-activo", e => {
+      if (modoSeleccion) return;
+      const id     = e.features[0].properties.id;
+      const coords = e.features[0].geometry.coordinates.slice();
+      mostrarPopup(id, coords);
+      App.abrirPanel(id);
+    });
+
+    mapa.on("mouseenter", "clusters",     () => { mapa.getCanvas().style.cursor = "pointer"; });
+    mapa.on("mouseleave", "clusters",     () => { if (!modoSeleccion) mapa.getCanvas().style.cursor = ""; });
+    mapa.on("mouseenter", "punto-activo", () => { mapa.getCanvas().style.cursor = "pointer"; });
+    mapa.on("mouseleave", "punto-activo", () => { if (!modoSeleccion) mapa.getCanvas().style.cursor = ""; });
+
+    capasListas = true;
+    actualizarFuente();
+  }
+
+  /* ── Actualizar datos en las fuentes GeoJSON ── */
+  function actualizarFuente() {
+    if (!capasListas || !mapa) return;
+    const todos   = Object.values(centrosMap);
+    const activos = todos.filter(c => filtradosIds.has(c.id) && c.lat && c.lng);
+    const opacos  = todos.filter(c => !filtradosIds.has(c.id) && c.lat && c.lng);
+    mapa.getSource("centros-active").setData({ type: "FeatureCollection", features: activos.map(toFeature) });
+    mapa.getSource("centros-dim").setData({ type: "FeatureCollection", features: opacos.map(toFeature) });
+  }
+
+  /* ── Popup ── */
+  function mostrarPopup(id, lngLat) {
+    if (popupActual) { popupActual.remove(); popupActual = null; }
+    const centro = centrosMap[id];
+    if (!centro) return;
+    popupActual = new maplibregl.Popup({ offset: 14, maxWidth: "300px", closeOnClick: false })
+      .setLngLat(lngLat)
+      .setHTML(crearPopupHTML(centro))
+      .addTo(mapa);
+    popupActual.on("close", () => { popupActual = null; });
   }
 
   /* ── INIT ── */
@@ -103,6 +249,9 @@ const MapaAcopio = (() => {
       attributionControl: { compact: true }
     });
 
+    mapa.on("load",       () => aplicarCapas());
+    mapa.on("style.load", () => { capasListas = false; aplicarCapas(); });
+
     mapa.on("click", e => {
       if (modoSeleccion && typeof onClickMap === "function") {
         onClickMap(e.lngLat.lat, e.lngLat.lng);
@@ -110,86 +259,33 @@ const MapaAcopio = (() => {
     });
   }
 
-  /* ── Agregar / actualizar marcador ── */
-  function upsertMarcador(centro) {
-    const { lat, lng, id } = centro;
-    if (!lat || !lng) return;
+  /* ── API pública ── */
 
-    if (marcadores[id]) {
-      marcadores[id].marker.setLngLat([lng, lat]);
-      // Actualizar color del pin
-      const pathEl = marcadores[id].el.querySelector("path");
-      if (pathEl) pathEl.setAttribute("fill", colorPara(centro.capacidad));
-      marcadores[id].el.style.opacity = 1;
-      marcadores[id].centro = centro;
-    } else {
-      const el = crearElMarcador(centro.capacidad);
-      const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
-        .setLngLat([lng, lat])
-        .addTo(mapa);
-
-      el.addEventListener("click", e => {
-        if (modoSeleccion) return;
-        e.stopPropagation();
-        abrirPopupMarcador(id);
-        App.abrirPanel(id);
-      });
-
-      marcadores[id] = { marker, el, centro };
-    }
-  }
-
-  /* ── Abrir popup al hacer click en un marcador ── */
-  function abrirPopupMarcador(id) {
-    if (!marcadores[id]) return;
-    if (popupActual) { popupActual.remove(); popupActual = null; }
-    const { centro, marker } = marcadores[id];
-    const lngLat = marker.getLngLat();
-    popupActual = new maplibregl.Popup({ offset: [0, -38], maxWidth: "300px", closeOnClick: false })
-      .setLngLat(lngLat)
-      .setHTML(crearPopupHTML(centro))
-      .addTo(mapa);
-    popupActual.on("close", () => { popupActual = null; });
-  }
-
-  /* ── Eliminar marcador ── */
-  function quitarMarcador(id) {
-    if (marcadores[id]) {
-      marcadores[id].marker.remove();
-      delete marcadores[id];
-    }
-  }
-
-  /* ── Sincronizar todos los centros ── */
   function sincronizarCentros(centros, filtrados) {
-    const idsFiltrados = new Set(filtrados.map(c => c.id));
-
-    for (const c of filtrados) {
-      upsertMarcador(c);
-      if (marcadores[c.id]) marcadores[c.id].el.style.opacity = 1;
-    }
-    for (const c of centros) {
-      if (!idsFiltrados.has(c.id) && marcadores[c.id]) {
-        marcadores[c.id].el.style.opacity = 0.3;
-      }
-    }
-    const idsActivos = new Set(centros.map(c => c.id));
-    for (const id of Object.keys(marcadores)) {
-      if (!idsActivos.has(id)) quitarMarcador(id);
-    }
+    centrosMap   = {};
+    centros.forEach(c => { centrosMap[c.id] = c; });
+    filtradosIds = new Set(filtrados.map(c => c.id));
+    actualizarFuente();
   }
 
-  /* ── Volar a coordenadas ── */
+  function upsertMarcador(centro) {
+    centrosMap[centro.id] = centro;
+  }
+
+  function quitarMarcador(id) {
+    delete centrosMap[id];
+  }
+
+  function abrirPopup(id) {
+    const c = centrosMap[id];
+    if (!c || !c.lat || !c.lng) return;
+    mostrarPopup(id, [c.lng, c.lat]);
+  }
+
   function volarA(lat, lng, zoom = 15) {
     mapa.flyTo({ center: [lng, lat], zoom, duration: 800 });
   }
 
-  /* ── Abrir popup de un centro específico ── */
-  function abrirPopup(id) {
-    abrirPopupMarcador(id);
-  }
-
-  /* ── Modo selección de ubicación ── */
   function activarSeleccion(callback) {
     modoSeleccion = true;
     onClickMap    = callback;
@@ -202,10 +298,20 @@ const MapaAcopio = (() => {
     mapa.getCanvas().style.cursor = "";
   }
 
-  /* ── Marcador temporal arrastrable ── */
+  function crearElMarcadorDOM(cap) {
+    const c  = COLORES[cap] || COLORES.parcial;
+    const el = document.createElement("div");
+    el.className = "mbx-pin";
+    el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
+      <path d="M14 0C6.27 0 0 6.27 0 14c0 9.33 14 22 14 22S28 23.33 28 14C28 6.27 21.73 0 14 0z" fill="${c}"/>
+      <circle cx="14" cy="14" r="5.5" fill="white"/>
+    </svg>`;
+    return el;
+  }
+
   function ponerMarcadorTemp(lat, lng, onDrag) {
     quitarMarcadorTemp();
-    const el = crearElMarcador("disponible");
+    const el = crearElMarcadorDOM("disponible");
     marcadorTemp = new maplibregl.Marker({ element: el, anchor: "bottom", draggable: true })
       .setLngLat([lng, lat])
       .addTo(mapa);
@@ -221,26 +327,21 @@ const MapaAcopio = (() => {
     if (marcadorTemp) { marcadorTemp.remove(); marcadorTemp = null; }
   }
 
-  /* ── Centrar en Venezuela ── */
   function centrarVenezuela() {
     mapa.flyTo({ center: VE_LNG_LAT, zoom: VE_ZOOM - 1 });
   }
 
-  /* ── Toggle mapa / satélite ── */
   function toggleSatelite() {
     if (!mapa) return;
-    // Los marcadores HTML sobreviven al cambio de estilo (son DOM overlay, no WebGL)
     mapa.setStyle(esSatelite ? STYLE_MAPA : STYLE_SAT);
     esSatelite = !esSatelite;
     return esSatelite ? "satellite" : "roadmap";
   }
 
-  /* ── Cerrar popup activo ── */
   function cerrarPopups() {
     if (popupActual) { popupActual.remove(); popupActual = null; }
   }
 
-  /* ── Ajustar vista a centros filtrados ── */
   function ajustarVista(centros) {
     const con = centros.filter(c => c.lat && c.lng);
     if (!con.length) return;

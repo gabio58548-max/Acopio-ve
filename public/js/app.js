@@ -290,8 +290,26 @@ const App = (() => {
       fotosRow.style.display = "none";
     }
 
-    // Controles de operador (solo si hay sesión activa)
-    document.getElementById("op-panel-controles").classList.toggle("hidden", !opEmail);
+    // Botón actualizar: solo para centros Firebase (centros RG se gestionan en responsegrid.app)
+    const esRG = c._source === "responsegrid";
+    const btnActualizar = document.getElementById("btn-panel-actualizar");
+    if (btnActualizar) btnActualizar.classList.toggle("hidden", esRG);
+
+    // Badge de fuente de datos
+    let srcBadge = document.getElementById("p-source-badge");
+    if (srcBadge) {
+      srcBadge.textContent = esRG ? "ResponseGrid" : "";
+      srcBadge.classList.toggle("hidden", !esRG);
+    }
+
+    // Controles de operador (solo Firebase; RG no admite modificaciones locales)
+    document.getElementById("op-panel-controles").classList.toggle("hidden", !opEmail || esRG);
+
+    // Botón registrar movimiento (operadores, todos los centros)
+    document.getElementById("btn-reg-mov").classList.toggle("hidden", !opEmail);
+
+    // Cargar movimientos del centro
+    cargarYRenderMovimientos(c.id);
 
     // Reportes de problema
     const rep = c.reportes || 0;
@@ -613,6 +631,101 @@ const App = (() => {
     } finally {
       label.textContent = "Agregar foto";
       document.getElementById("op-foto-input").value = "";
+    }
+  }
+
+  /* ══════════════════════════════════════════
+     MOVIMIENTOS — Trazabilidad de donaciones
+     ══════════════════════════════════════════ */
+  function abrirModalMovimiento() {
+    if (!centroActivo) return;
+    document.getElementById("mov-descripcion").value = "";
+    document.getElementById("mov-persona").value = "";
+    document.getElementById("mov-cedula").value = "";
+    document.getElementById("mov-destino").value = "";
+    document.getElementById("mov-placa").value = "";
+    document.getElementById("mov-nota").value = "";
+    document.querySelector("input[name='mov-tipo'][value='entrada']").checked = true;
+    document.getElementById("mov-grupo-salida").classList.add("hidden");
+    document.getElementById("mov-label-persona").textContent = "Nombre del donante *";
+    document.getElementById("mov-error").classList.add("hidden");
+    document.getElementById("modal-movimiento").classList.remove("hidden");
+  }
+
+  function cerrarModalMovimiento() {
+    document.getElementById("modal-movimiento").classList.add("hidden");
+  }
+
+  async function guardarMovimiento() {
+    const tipo = document.querySelector("input[name='mov-tipo']:checked").value;
+    const descripcion = document.getElementById("mov-descripcion").value.trim();
+    const persona     = document.getElementById("mov-persona").value.trim();
+    const cedula      = document.getElementById("mov-cedula").value.trim();
+    const destino     = document.getElementById("mov-destino").value.trim();
+    const placa       = document.getElementById("mov-placa").value.trim();
+    const nota        = document.getElementById("mov-nota").value.trim();
+    const errEl = document.getElementById("mov-error");
+
+    if (!descripcion || !persona) {
+      errEl.textContent = "Completa los campos obligatorios (*)";
+      errEl.classList.remove("hidden");
+      return;
+    }
+    if (tipo === "salida" && !destino) {
+      errEl.textContent = "Indica el destino de los insumos";
+      errEl.classList.remove("hidden");
+      return;
+    }
+
+    const c = todosLosCentros.find(x => x.id === centroActivo);
+    if (!c) return;
+
+    const btn = document.getElementById("btn-guardar-mov");
+    btn.disabled = true; btn.textContent = "Guardando…";
+
+    try {
+      await API.guardarMovimiento({
+        tipo, centroId: c.id, centroNombre: c.nombre,
+        descripcion, persona, cedula, destino, placa, nota,
+        operadorEmail: opEmail
+      });
+      cerrarModalMovimiento();
+      mostrarToast("Movimiento registrado.", "success");
+      cargarYRenderMovimientos(c.id);
+    } catch (e) {
+      errEl.textContent = "Error al guardar: " + e.message;
+      errEl.classList.remove("hidden");
+    } finally {
+      btn.disabled = false; btn.textContent = "Guardar registro";
+    }
+  }
+
+  async function cargarYRenderMovimientos(centroId) {
+    const lista = document.getElementById("p-mov-list");
+    lista.innerHTML = `<div class="p-mov-empty muted">Cargando…</div>`;
+    try {
+      const raw = await API.cargarMovimientos(centroId, 8);
+      const items = Object.values(raw || {})
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 8);
+      if (!items.length) {
+        lista.innerHTML = `<div class="p-mov-empty muted">Sin registros aún.</div>`;
+        return;
+      }
+      lista.innerHTML = items.map(m => {
+        const esSalida = m.tipo === "salida";
+        const icono    = esSalida ? "📤" : "📥";
+        const fechaStr = m.timestamp ? formatearTiempo(m.timestamp) : "";
+        const extra    = esSalida && m.destino ? ` → ${escHtml(m.destino)}` : "";
+        const placa    = m.placa ? ` | 🚗 ${escHtml(m.placa)}` : "";
+        return `<div class="mov-item ${m.tipo}">
+          <div class="mov-item-tipo">${icono} ${esSalida ? "Salida" : "Entrada"}</div>
+          <div class="mov-item-desc">${escHtml(m.descripcion)}${extra}</div>
+          <div class="mov-item-meta">${escHtml(m.persona)}${placa} · ${fechaStr}</div>
+        </div>`;
+      }).join("");
+    } catch (_) {
+      lista.innerHTML = `<div class="p-mov-empty muted">No se pudieron cargar los registros.</div>`;
     }
   }
 
@@ -1644,6 +1757,20 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     document.getElementById("btn-cancelar-actualizar").addEventListener("click", cerrarModalActualizar);
     document.getElementById("backdrop-actualizar").addEventListener("click", cerrarModalActualizar);
     document.getElementById("form-actualizar").addEventListener("submit", submitActualizarCentro);
+
+    // Movimientos
+    document.getElementById("btn-reg-mov").addEventListener("click", abrirModalMovimiento);
+    document.getElementById("btn-cerrar-mov").addEventListener("click", cerrarModalMovimiento);
+    document.getElementById("backdrop-movimiento").addEventListener("click", cerrarModalMovimiento);
+    document.getElementById("btn-guardar-mov").addEventListener("click", guardarMovimiento);
+    document.querySelectorAll("input[name='mov-tipo']").forEach(r => {
+      r.addEventListener("change", () => {
+        const esSalida = r.value === "salida";
+        document.getElementById("mov-grupo-salida").classList.toggle("hidden", !esSalida);
+        document.getElementById("mov-label-persona").textContent =
+          esSalida ? "Nombre del responsable *" : "Nombre del donante *";
+      });
+    });
 
     // Exportar / difundir
     document.getElementById("btn-exportar-csv").addEventListener("click", exportarCSV);

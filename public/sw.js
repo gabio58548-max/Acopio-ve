@@ -1,17 +1,19 @@
 /**
- * ACOPIO VE — Service Worker v19
+ * ACOPIO VE — Service Worker v23
  * Estrategia:
  *   - App (HTML/JS/CSS): NETWORK-FIRST → siempre código fresco
- *   - Librerías locales (Firebase SDK, iconos): CACHE-FIRST → carga rápida
- *   - CDN externas (MapLibre GL, QRCode): CACHE-FIRST → disponibles offline
+ *   - Librerías locales (Firebase SDK, MapLibre GL, iconos): CACHE-FIRST → carga rápida
+ *   - CDN externas (QRCode, EmailJS): CACHE-FIRST → disponibles offline
  *   - Firebase RTDB y Storage: siempre red, nunca caché
  */
 
-const CACHE = "acopio-ve-v19";
+const CACHE = "acopio-ve-v24";
 
 const CACHE_FIRST_LOCAL = [
   "/lib/firebase-app.js",
   "/lib/firebase-database.js",
+  "/lib/maplibre-gl.js",
+  "/lib/maplibre-gl.css",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/manifest.json"
@@ -19,8 +21,6 @@ const CACHE_FIRST_LOCAL = [
 
 // CDN externas que queremos cachear para uso offline
 const CACHE_FIRST_CDN = [
-  "https://unpkg.com/maplibre-gl@4.5.2/dist/maplibre-gl.js",
-  "https://unpkg.com/maplibre-gl@4.5.2/dist/maplibre-gl.css",
   "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js",
   "https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"
 ];

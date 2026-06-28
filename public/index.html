@@ -14,7 +14,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
 
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.5.2/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="lib/maplibre-gl.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -256,6 +256,7 @@
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <span id="p-badge" class="badge">—</span>
             <span id="p-verificado-badge" class="badge-verificado hidden">✓ Verificado</span>
+            <span id="p-source-badge" class="badge badge-rg hidden">ResponseGrid</span>
           </div>
         </div>
         <button id="btn-cerrar-panel" class="btn-icon-only">
@@ -284,6 +285,18 @@
         <div class="info-row" id="p-fotos-row" style="display:none"><span class="info-icon">📷</span><div id="p-fotos" class="p-fotos"></div></div>
         <div class="info-row"><span class="info-icon">🔄</span><div class="muted" id="p-actualizado">—</div></div>
       </div>
+
+      <!-- ── Trazabilidad de movimientos ── -->
+      <div id="p-mov-section" class="p-mov-section">
+        <div class="p-mov-header">
+          <span>📋 Registro de movimientos</span>
+          <button id="btn-reg-mov" class="btn-reg-mov hidden">+ Registrar</button>
+        </div>
+        <div id="p-mov-list" class="p-mov-list">
+          <div class="p-mov-empty muted">Sin registros aún.</div>
+        </div>
+      </div>
+
       <div class="panel-foot">
         <button id="btn-panel-actualizar" class="btn btn-primary full-width" title="Actualizar la capacidad, insumos o información de contacto de este centro">Actualizar Estado</button>
         <div class="panel-foot-row">
@@ -323,6 +336,68 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL: REGISTRAR MOVIMIENTO ═══ -->
+  <div id="modal-movimiento" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" id="backdrop-movimiento"></div>
+    <div class="modal-box modal-sm">
+      <div class="modal-header">
+        <h3 id="mov-modal-titulo">Registrar movimiento</h3>
+        <button class="modal-close" id="btn-cerrar-mov">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <div class="radio-group">
+            <label class="radio-pill">
+              <input type="radio" name="mov-tipo" value="entrada" checked>
+              <span>📥 Entrada (donación recibida)</span>
+            </label>
+            <label class="radio-pill">
+              <input type="radio" name="mov-tipo" value="salida">
+              <span>📤 Salida (insumos enviados)</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">¿Qué se movió? <span class="req">*</span></label>
+          <textarea id="mov-descripcion" class="form-input" rows="2" maxlength="500"
+            placeholder="Ej: 20 cajas de agua, 15 colchonetas, 30 bolsas de comida"></textarea>
+        </div>
+        <div class="form-group" id="mov-grupo-persona">
+          <label class="form-label" id="mov-label-persona">Nombre del donante <span class="req">*</span></label>
+          <input type="text" id="mov-persona" class="form-input" maxlength="100"
+            placeholder="Nombre completo">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cédula (opcional)</label>
+          <input type="text" id="mov-cedula" class="form-input" maxlength="20"
+            placeholder="V-12345678">
+        </div>
+        <div id="mov-grupo-salida" class="hidden">
+          <div class="form-group">
+            <label class="form-label">Destino <span class="req">*</span></label>
+            <input type="text" id="mov-destino" class="form-input" maxlength="150"
+              placeholder="Comunidad o centro destino">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Placa del vehículo</label>
+            <input type="text" id="mov-placa" class="form-input" maxlength="20"
+              placeholder="ABC-123">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nota adicional</label>
+          <input type="text" id="mov-nota" class="form-input" maxlength="300"
+            placeholder="Opcional">
+        </div>
+        <div id="mov-error" class="form-error hidden"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-guardar-mov" class="btn btn-primary full-width">Guardar registro</button>
       </div>
     </div>
   </div>
@@ -632,7 +707,7 @@
   <!-- EmailJS — envío de código OTP por correo -->
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <!-- MapLibre GL JS — API compatible con Mapbox, gratis, sin API key -->
-  <script src="https://unpkg.com/maplibre-gl@4.5.2/dist/maplibre-gl.js"></script>
+  <script src="lib/maplibre-gl.js"></script>
   <!-- QRCode.js — generación de códigos QR -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="js/config.js"></script>

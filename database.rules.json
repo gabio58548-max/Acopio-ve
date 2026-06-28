@@ -31,6 +31,32 @@
       }
     },
 
+    "movimientos": {
+      ".read": true,
+      ".indexOn": ["centroId", "timestamp"],
+      "$movId": {
+        ".write": true,
+        ".validate": "newData.hasChildren(['tipo','centroId','centroNombre','descripcion','persona','timestamp','operadorEmail'])",
+        "tipo":          { ".validate": "newData.val() === 'entrada' || newData.val() === 'salida'" },
+        "centroId":      { ".validate": "newData.isString() && newData.val().length > 0" },
+        "centroNombre":  { ".validate": "newData.isString() && newData.val().length > 0" },
+        "descripcion":   { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 500" },
+        "persona":       { ".validate": "newData.isString() && newData.val().length > 0" },
+        "cedula":        { ".validate": "!newData.exists() || newData.isString()" },
+        "destino":       { ".validate": "!newData.exists() || newData.isString()" },
+        "placa":         { ".validate": "!newData.exists() || newData.isString()" },
+        "nota":          { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" },
+        "operadorEmail": { ".validate": "newData.isString() && newData.val().length > 0" },
+        "timestamp":     { ".validate": "newData.isNumber()" },
+        "$other":        { ".validate": false }
+      }
+    },
+
+    "rg_centros": {
+      ".read":  true,
+      ".write": true
+    },
+
     "otps": {
       "$emailKey": {
         ".read":  true,

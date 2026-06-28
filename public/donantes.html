@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acopio VE — Dona, Registra, Actúa</title>
+  <meta name="description" content="Mapa en tiempo real de centros de acopio para el terremoto de Venezuela 2026. Encuentra dónde donar, registra tu centro o accede a los datos abiertos.">
+  <meta property="og:title" content="Acopio VE — Encuentra dónde donar en Venezuela">
+  <meta property="og:description" content="395 centros verificados. Filtra por estado, capacidad e insumos. Gratis, sin registro, funciona en el celular.">
+  <meta property="og:url" content="https://acopio-ve-2026.web.app/donantes.html">
+  <link rel="icon" href="/icons/icon-192.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #080808;
+      --surf:    #111111;
+      --surf2:   #181818;
+      --border:  #222222;
+      --text:    #f2f2f2;
+      --muted:   #888888;
+      --red:     #e53935;
+      --red-dim: #7b1f1e;
+      --green:   #43a047;
+      --yellow:  #ffb300;
+      --blue:    #1565c0;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    img { display: block; max-width: 100%; }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(8,8,8,.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .nav-logo {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-logo span { color: var(--red); }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      background: var(--red);
+      color: #fff;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 8px 18px;
+      border-radius: 6px;
+      transition: background .15s;
+      white-space: nowrap;
+    }
+    .nav-cta:hover { background: #c62828; }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 80px 24px 60px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% 0%, rgba(229,57,53,.12) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 40% at 20% 80%, rgba(67,160,71,.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(229,57,53,.15);
+      border: 1px solid rgba(229,57,53,.3);
+      color: #ef9a9a;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 100px;
+      margin-bottom: 32px;
+    }
+    .pulse {
+      width: 7px; height: 7px;
+      background: var(--red);
+      border-radius: 50%;
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: .5; transform: scale(1.4); }
+    }
+    .hero h1 {
+      font-size: clamp(36px, 8vw, 80px);
+      font-weight: 800;
+      letter-spacing: -2px;
+      line-height: 1.05;
+      max-width: 800px;
+      margin-bottom: 24px;
+    }
+    .hero h1 em { color: var(--red); font-style: normal; }
+    .hero-sub {
+      font-size: clamp(16px, 2.5vw, 21px);
+      color: var(--muted);
+      max-width: 560px;
+      margin-bottom: 48px;
+      line-height: 1.5;
+    }
+    .hero-btns {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 64px;
+    }
+    .btn-primary {
+      background: var(--red);
+      color: #fff;
+      font-size: 17px;
+      font-weight: 700;
+      padding: 16px 36px;
+      border-radius: 8px;
+      transition: background .15s, transform .1s;
+    }
+    .btn-primary:hover { background: #c62828; transform: translateY(-1px); }
+    .btn-secondary {
+      background: var(--surf2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 16px;
+      font-weight: 600;
+      padding: 15px 28px;
+      border-radius: 8px;
+      transition: background .15s;
+    }
+    .btn-secondary:hover { background: #222; }
+
+    .stats-row {
+      display: flex;
+      gap: 48px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .stat-item { text-align: center; }
+    .stat-n {
+      font-size: clamp(32px, 6vw, 52px);
+      font-weight: 800;
+      letter-spacing: -2px;
+      line-height: 1;
+    }
+    .stat-n.red    { color: var(--red); }
+    .stat-n.green  { color: var(--green); }
+    .stat-n.yellow { color: var(--yellow); }
+    .stat-label { font-size: 13px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: .06em; }
+
+    /* ── SECTIONS ── */
+    section { padding: 96px 24px; }
+    .section-inner { max-width: 1000px; margin: 0 auto; }
+    .section-label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--red);
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+    .section-sub {
+      font-size: 17px;
+      color: var(--muted);
+      max-width: 560px;
+      margin-bottom: 56px;
+      line-height: 1.6;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0;
+    }
+
+    /* ── STEPS ── */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 2px;
+      background: var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .step {
+      background: var(--surf);
+      padding: 36px 32px;
+    }
+    .step-num {
+      font-size: 48px;
+      font-weight: 900;
+      color: var(--border);
+      line-height: 1;
+      margin-bottom: 20px;
+      letter-spacing: -3px;
+    }
+    .step h3 {
+      font-size: 19px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      letter-spacing: -.5px;
+    }
+    .step p { font-size: 15px; color: var(--muted); line-height: 1.5; }
+
+    /* ── SUPPLIES GRID ── */
+    .supplies {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
+    }
+    .supply-tag {
+      background: var(--surf);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .supply-icon { font-size: 22px; line-height: 1; }
+
+    /* ── ORG SECTION ── */
+    .org-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      background: var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .org-card {
+      background: var(--surf);
+      padding: 40px 36px;
+    }
+    .org-card h3 { font-size: 22px; font-weight: 700; margin-bottom: 12px; letter-spacing: -.5px; }
+    .org-card p  { font-size: 15px; color: var(--muted); margin-bottom: 28px; line-height: 1.6; }
+    .org-card ul { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 32px; }
+    .org-card li { font-size: 14px; color: var(--muted); display: flex; gap: 8px; align-items: flex-start; }
+    .org-card li::before { content: "→"; color: var(--red); flex-shrink: 0; margin-top: 1px; }
+
+    /* ── DATA SECTION ── */
+    .data-section { background: var(--surf); }
+    .api-block {
+      background: #0d0d0d;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px 24px;
+      font-family: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+      font-size: 13px;
+      color: #a5d6a7;
+      overflow-x: auto;
+      margin-bottom: 8px;
+    }
+    .api-label { font-size: 12px; color: var(--muted); margin-bottom: 16px; font-family: inherit; }
+    .data-pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 32px;
+    }
+    .pill {
+      background: var(--surf2);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 6px 14px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    footer a { color: var(--muted); text-decoration: underline; }
+    footer a:hover { color: var(--text); }
+    .footer-inner { max-width: 700px; margin: 0 auto; }
+    .footer-logo { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 16px; }
+    .footer-logo span { color: var(--red); }
+    .footer-links { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 640px) {
+      .nav-links { display: none; }
+      .org-grid  { grid-template-columns: 1fr; }
+      .steps     { grid-template-columns: 1fr; }
+      .stats-row { gap: 32px; }
+      .hero-btns { flex-direction: column; align-items: center; }
+      .btn-primary, .btn-secondary { width: 100%; max-width: 320px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <span>●</span> Acopio VE
+  </div>
+  <div class="nav-links">
+    <a href="#donar">Donar</a>
+    <a href="#organizaciones">Organizaciones</a>
+    <a href="#datos">Datos abiertos</a>
+  </div>
+  <a href="https://acopio-ve-2026.web.app" class="nav-cta">Ver mapa →</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow">
+    <span class="pulse"></span>
+    Terremoto Venezuela 2026 · Respuesta activa
+  </div>
+  <h1>Sabe dónde donar.<br>Sabe que <em>llegó</em>.</h1>
+  <p class="hero-sub">
+    Mapa en tiempo real con 395+ centros de acopio verificados
+    en 18 estados de Venezuela. Sin registro, desde el celular.
+  </p>
+  <div class="hero-btns">
+    <a href="https://acopio-ve-2026.web.app" class="btn-primary">Ver centros cerca de mí</a>
+    <a href="#donar" class="btn-secondary">¿Cómo funciona?</a>
+  </div>
+  <div class="stats-row">
+    <div class="stat-item">
+      <div class="stat-n red">395+</div>
+      <div class="stat-label">Centros verificados</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-n green">18</div>
+      <div class="stat-label">Estados cubiertos</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-n yellow">24/7</div>
+      <div class="stat-label">Datos en tiempo real</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- DONAR -->
+<section id="donar">
+  <div class="section-inner">
+    <div class="section-label">Para donantes</div>
+    <h2 class="section-title">En tres pasos, tu donación llega.</h2>
+    <p class="section-sub">
+      Sin intermediarios, sin formularios. Llevas lo que necesitan
+      directamente al centro que tiene espacio.
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h3>Abre el mapa</h3>
+        <p>Filtra por tu estado. Cada centro muestra si tiene espacio disponible, parcial o si está lleno.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h3>Revisa qué aceptan</h3>
+        <p>Cada centro especifica qué tipo de insumos recibe. No vayas con algo que no puedan procesar.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h3>Ve con la app abierta</h3>
+        <p>El mapa te da cómo llegar por Waze o Google Maps. Instálala como app para usarla sin internet.</p>
+      </div>
+    </div>
+
+    <p class="section-label" style="margin-top: 56px; margin-bottom: 20px;">Lo más necesario ahora</p>
+    <div class="supplies">
+      <div class="supply-tag"><span class="supply-icon">💧</span>Agua potable</div>
+      <div class="supply-tag"><span class="supply-icon">🥫</span>Alimentos no perecederos</div>
+      <div class="supply-tag"><span class="supply-icon">💊</span>Medicamentos</div>
+      <div class="supply-tag"><span class="supply-icon">👕</span>Ropa y calzado</div>
+      <div class="supply-tag"><span class="supply-icon">🧴</span>Artículos de higiene</div>
+      <div class="supply-tag"><span class="supply-icon">🔦</span>Linternas y velas</div>
+      <div class="supply-tag"><span class="supply-icon">🧱</span>Materiales de construcción</div>
+      <div class="supply-tag"><span class="supply-icon">👶</span>Artículos para bebés</div>
+      <div class="supply-tag"><span class="supply-icon">🛠️</span>Herramientas</div>
+      <div class="supply-tag"><span class="supply-icon">🛏️</span>Frazadas y colchonetas</div>
+    </div>
+
+    <div style="text-align:center; margin-top: 48px;">
+      <a href="https://acopio-ve-2026.web.app" class="btn-primary">Encontrar un centro con espacio</a>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ORGANIZACIONES -->
+<section id="organizaciones" style="background: var(--surf);">
+  <div class="section-inner">
+    <div class="section-label">Para organizaciones</div>
+    <h2 class="section-title">¿Tienes un centro? Regístralo.</h2>
+    <p class="section-sub">
+      Los datos del mapa son abiertos y editables. Cualquier organización
+      puede agregar o actualizar un punto de acopio en menos de dos minutos.
+    </p>
+
+    <div class="org-grid">
+      <div class="org-card">
+        <h3>Agregar tu centro</h3>
+        <p>Registra tu punto de acopio con ubicación exacta, horario, contacto y qué insumos aceptas.</p>
+        <ul>
+          <li>Sin registro previo ni cuenta</li>
+          <li>Coordenadas por GPS o selección en mapa</li>
+          <li>Visible de inmediato para todos</li>
+          <li>Puedes actualizarlo cuando se llene</li>
+        </ul>
+        <a href="https://acopio-ve-2026.web.app" class="btn-primary" style="display:inline-block">Registrar mi centro →</a>
+      </div>
+      <div class="org-card">
+        <h3>Registrar movimientos</h3>
+        <p>Los operadores con acceso pueden registrar qué entra y qué sale del centro, con quién y con qué vehículo.</p>
+        <ul>
+          <li>Registro de donaciones recibidas</li>
+          <li>Control de salidas con nombre y cédula</li>
+          <li>Historial público por centro</li>
+          <li>Disuade pérdidas y facilita rendición de cuentas</li>
+        </ul>
+        <a href="https://acopio-ve-2026.web.app" class="btn-secondary" style="display:inline-block">Ver cómo funciona →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- DATOS ABIERTOS -->
+<section id="datos" class="data-section">
+  <div class="section-inner">
+    <div class="section-label">Para prensa, ONGs e investigadores</div>
+    <h2 class="section-title">Datos abiertos, sin autenticación.</h2>
+    <p class="section-sub">
+      Todos los centros son accesibles por API REST. Úsalos para
+      tus propios mapas, reportes o pipelines de datos.
+    </p>
+
+    <p class="api-label">Centros agregados por usuarios y organizaciones</p>
+    <div class="api-block">GET https://acopio-ve-2026-default-rtdb.firebaseio.com/centros.json</div>
+
+    <p class="api-label">Centros verificados de ResponseGrid (395+ puntos)</p>
+    <div class="api-block">GET https://acopio-ve-2026-default-rtdb.firebaseio.com/rg_centros.json</div>
+
+    <p style="font-size:14px; color: var(--muted); margin-bottom: 24px;">
+      Ambos endpoints devuelven JSON con nombre, estado, municipio, coordenadas,
+      capacidad (disponible / parcial / lleno), insumos aceptados, contacto
+      y timestamp de última actualización.
+    </p>
+
+    <div class="data-pills">
+      <span class="pill">JSON · sin auth</span>
+      <span class="pill">Actualización en tiempo real</span>
+      <span class="pill">Licencia abierta</span>
+      <span class="pill">Coordenadas WGS84</span>
+      <span class="pill">Español</span>
+    </div>
+
+    <div style="margin-top: 40px; display: flex; gap: 16px; flex-wrap: wrap;">
+      <a href="https://github.com/gabio58548-max/Acopio-ve" class="btn-secondary">Ver código en GitHub</a>
+      <a href="https://acopio-ve-2026.web.app" class="btn-primary">Abrir la app →</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo"><span>●</span> Acopio VE</div>
+    <div class="footer-links">
+      <a href="https://acopio-ve-2026.web.app">App</a>
+      <a href="https://github.com/gabio58548-max/Acopio-ve">GitHub</a>
+      <a href="https://acopio-ve-2026-default-rtdb.firebaseio.com/centros.json">API centros</a>
+      <a href="https://acopio-ve-2026-default-rtdb.firebaseio.com/rg_centros.json">API ResponseGrid</a>
+    </div>
+    <p>Proyecto open source para la respuesta al terremoto de Venezuela 2026.<br>
+    Datos proporcionados por voluntarios y <a href="https://responsegrid.app">ResponseGrid</a>.</p>
+  </div>
+</footer>
+
+</body>
+</html>
