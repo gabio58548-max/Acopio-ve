@@ -104,57 +104,18 @@ const MapaAcopio = (() => {
     if (!mapa) return;
 
     // Limpiar si ya existían (toggle satélite reconstruye todo)
-    ["heatmap","clusters","cluster-count","punto-activo","punto-dim"].forEach(id => {
+    ["punto-activo-halo","punto-activo","punto-dim"].forEach(id => {
       try { if (mapa.getLayer(id)) mapa.removeLayer(id); } catch (_) {}
     });
-    ["centros-active","centros-dim","centros-heat"].forEach(id => {
+    ["centros-active","centros-dim"].forEach(id => {
       try { if (mapa.getSource(id)) mapa.removeSource(id); } catch (_) {}
     });
 
-    // Fuente principal: centros filtrados con clustering
-    mapa.addSource("centros-active", {
-      type: "geojson",
-      data: vacio(),
-      cluster: true,
-      clusterMaxZoom: 11,
-      clusterRadius: 35
-    });
+    // Fuente principal: centros filtrados (sin clustering)
+    mapa.addSource("centros-active", { type: "geojson", data: vacio() });
 
-    // Fuente secundaria: centros NO filtrados (sin clustering)
-    mapa.addSource("centros-dim", {
-      type: "geojson",
-      data: vacio()
-    });
-
-    // Fuente para heatmap: mismos datos filtrados, sin clustering
-    mapa.addSource("centros-heat", {
-      type: "geojson",
-      data: vacio()
-    });
-
-    // Capa 0: heatmap (zoom lejano, desaparece al acercar)
-    try {
-      mapa.addLayer({
-        id: "heatmap",
-        type: "heatmap",
-        source: "centros-heat",
-        maxzoom: 11,
-        paint: {
-          "heatmap-weight": 1,
-          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 0.4, 9, 1.2],
-          "heatmap-color": [
-            "interpolate", ["linear"], ["heatmap-density"],
-            0,   "rgba(0,0,0,0)",
-            0.2, "rgba(46,204,113,0.5)",
-            0.5, "rgba(243,156,18,0.7)",
-            0.8, "rgba(231,76,60,0.85)",
-            1,   "rgba(192,57,43,1)"
-          ],
-          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 18, 9, 30],
-          "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 7, 1, 10, 0]
-        }
-      });
-    } catch (_) {}
+    // Fuente secundaria: centros NO filtrados
+    mapa.addSource("centros-dim", { type: "geojson", data: vacio() });
 
     // Capa 1: puntos opacos (no filtrados)
     try {
@@ -163,68 +124,22 @@ const MapaAcopio = (() => {
         type: "circle",
         source: "centros-dim",
         paint: {
-          "circle-radius": 5,
-          "circle-color": "#999999",
-          "circle-opacity": 0.18,
+          "circle-radius": 4,
+          "circle-color": "#aaaaaa",
+          "circle-opacity": 0.15,
           "circle-stroke-width": 0
         }
       });
     } catch (_) {}
 
-    // Capa 2: burbujas de cluster
+    // Capa 2: halo suave (glow de emergencia)
     try {
       mapa.addLayer({
-        id: "clusters",
+        id: "punto-activo-halo",
         type: "circle",
         source: "centros-active",
-        filter: ["has", "point_count"],
         paint: {
-          "circle-color": [
-            "step", ["get", "point_count"],
-            "#27AE60", 15, "#F39C12", 40, "#E74C3C"
-          ],
-          "circle-radius": [
-            "step", ["get", "point_count"],
-            14, 15, 20, 40, 26
-          ],
-          "circle-stroke-width": 3,
-          "circle-stroke-color": "rgba(255,255,255,0.35)",
-          "circle-opacity": ["interpolate", ["linear"], ["zoom"], 8, 0, 10, 1]
-        }
-      });
-    } catch (_) {}
-
-    // Capa 3: número dentro del cluster
-    try {
-      mapa.addLayer({
-        id: "cluster-count",
-        type: "symbol",
-        source: "centros-active",
-        filter: ["has", "point_count"],
-        layout: {
-          "text-field": ["get", "point_count_abbreviated"],
-          "text-font": ["Noto Sans Regular"],
-          "text-size": 13
-        },
-        paint: {
-          "text-color": "#ffffff"
-        }
-      });
-    } catch (_) {}
-
-    // Capa 4: puntos individuales (sin cluster) — crítica
-    try {
-      mapa.addLayer({
-        id: "punto-activo",
-        type: "circle",
-        source: "centros-active",
-        filter: ["!", ["has", "point_count"]],
-        paint: {
-          "circle-radius": [
-            "interpolate", ["linear"], ["zoom"],
-            8, 6,
-            14, 10
-          ],
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 6, 12, 14],
           "circle-color": [
             "match", ["get", "capacidad"],
             "disponible", "#27AE60",
@@ -232,22 +147,34 @@ const MapaAcopio = (() => {
             "lleno",      "#E74C3C",
             "#F39C12"
           ],
-          "circle-stroke-width": 2,
-          "circle-stroke-color": "#ffffff"
+          "circle-opacity": 0.18,
+          "circle-stroke-width": 0
+        }
+      });
+    } catch (_) {}
+
+    // Capa 3: puntos individuales
+    try {
+      mapa.addLayer({
+        id: "punto-activo",
+        type: "circle",
+        source: "centros-active",
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 4, 10, 7, 14, 10],
+          "circle-color": [
+            "match", ["get", "capacidad"],
+            "disponible", "#27AE60",
+            "parcial",    "#F39C12",
+            "lleno",      "#E74C3C",
+            "#F39C12"
+          ],
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": "rgba(255,255,255,0.8)"
         }
       });
     } catch (_) {}
 
     /* ── Interacciones ── */
-    mapa.on("click", "clusters", async e => {
-      const feat = mapa.queryRenderedFeatures(e.point, { layers: ["clusters"] })[0];
-      if (!feat) return;
-      try {
-        const zoom = await mapa.getSource("centros-active").getClusterExpansionZoom(feat.properties.cluster_id);
-        mapa.easeTo({ center: feat.geometry.coordinates, zoom: zoom + 0.5, duration: 400 });
-      } catch (_) {}
-    });
-
     mapa.on("click", "punto-activo", e => {
       if (modoSeleccion) return;
       const id     = e.features[0].properties.id;
@@ -256,8 +183,6 @@ const MapaAcopio = (() => {
       App.abrirPanel(id);
     });
 
-    mapa.on("mouseenter", "clusters",     () => { mapa.getCanvas().style.cursor = "pointer"; });
-    mapa.on("mouseleave", "clusters",     () => { if (!modoSeleccion) mapa.getCanvas().style.cursor = ""; });
     mapa.on("mouseenter", "punto-activo", () => { mapa.getCanvas().style.cursor = "pointer"; });
     mapa.on("mouseleave", "punto-activo", () => { if (!modoSeleccion) mapa.getCanvas().style.cursor = ""; });
 
@@ -271,9 +196,7 @@ const MapaAcopio = (() => {
     const todos   = Object.values(centrosMap);
     const activos = todos.filter(c => filtradosIds.has(c.id) && c.lat && c.lng);
     const opacos  = todos.filter(c => !filtradosIds.has(c.id) && c.lat && c.lng);
-    const activosFC = { type: "FeatureCollection", features: activos.map(toFeature) };
-    mapa.getSource("centros-active").setData(activosFC);
-    mapa.getSource("centros-heat").setData(activosFC);
+    mapa.getSource("centros-active").setData({ type: "FeatureCollection", features: activos.map(toFeature) });
     mapa.getSource("centros-dim").setData({ type: "FeatureCollection", features: opacos.map(toFeature) });
   }
 
