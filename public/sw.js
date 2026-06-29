@@ -7,7 +7,7 @@
  *   - Firebase RTDB y Storage: siempre red, nunca caché
  */
 
-const CACHE = "acopio-ve-v24";
+const CACHE = "acopio-ve-v25";
 
 const CACHE_FIRST_LOCAL = [
   "/lib/firebase-app.js",
@@ -16,7 +16,9 @@ const CACHE_FIRST_LOCAL = [
   "/lib/maplibre-gl.css",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
-  "/manifest.json"
+  "/manifest.json",
+  "/donantes.html",
+  "/img/og-donantes.png"
 ];
 
 // CDN externas que queremos cachear para uso offline
