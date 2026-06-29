@@ -13,10 +13,11 @@ Open source, liviano, funciona con señal débil, pensado para emergencias sísm
 
 ## Características
 
-- **Mapa interactivo** (Leaflet.js + OpenStreetMap) con marcadores por capacidad
+- **Mapa interactivo** (MapLibre GL JS + OpenStreetMap/satélite) con clustering automático por GPU
 - **Semáforo visual**: 🟢 Disponible / 🟡 Parcial / 🔴 Lleno
+- **Dos fuentes de datos fusionadas**: ResponseGrid (574+ centros) + Firebase (centros agregados por usuarios)
 - **Registro de nuevos centros** — formulario público con GPS o clic en mapa
-- **Actualización de estado** en tiempo real (Firebase Realtime Database)
+- **Actualización de estado** en tiempo real (Firebase Realtime Database SSE + polling)
 - **Filtros**: por estado, municipio, capacidad y tipo de insumo
 - **Panel de detalle**: dirección, contacto, horario, insumos, última actualización
 - **Compartir por WhatsApp/Telegram** con un clic
@@ -30,8 +31,9 @@ Open source, liviano, funciona con señal débil, pensado para emergencias sísm
 | Capa | Tecnología |
 |------|-----------|
 | Frontend | HTML5 + CSS3 + JavaScript vanilla |
-| Mapa | [Leaflet.js 1.9.4](https://leafletjs.com) + OpenStreetMap |
-| Base de datos | Firebase Realtime Database |
+| Mapa | [MapLibre GL JS v4.5.2](https://maplibre.org) + OpenStreetMap / Esri Satellite |
+| Datos primarios | [ResponseGrid](https://responsegrid.app) — 574+ centros Venezuela + diáspora |
+| Datos secundarios | [Firebase Realtime Database](https://firebase.google.com) — centros agregados por usuarios |
 | Hosting | Firebase Hosting |
 | Offline | Service Worker (Cache API) |
 
@@ -43,20 +45,28 @@ Open source, liviano, funciona con señal débil, pensado para emergencias sísm
 acopio-ve/
 ├── public/
 │   ├── index.html          # SPA principal
+│   ├── donantes.html       # Landing para colaboradores/donantes
 │   ├── css/
 │   │   └── style.css       # Todos los estilos (mobile-first)
 │   ├── js/
-│   │   ├── config.js       # ⚠️ Configuración Firebase (editar aquí)
-│   │   ├── api.js          # Wrapper sobre Firebase RTDB + REST
-│   │   ├── map.js          # Lógica del mapa (Leaflet)
-│   │   └── app.js          # Orquestador principal
+│   │   ├── config.js       # ⚠️ Configuración Firebase + EmailJS + Drive (editar aquí)
+│   │   ├── api.js          # Capa de datos: ResponseGrid + Firebase RTDB + caché
+│   │   ├── map.js          # Mapa (MapLibre GL JS): GeoJSON, clustering, popups
+│   │   └── app.js          # Orquestador: filtros, formularios, operadores OTP, exportar
+│   ├── lib/
+│   │   ├── maplibre-gl.js  # MapLibre GL JS v4.5.2 (bundled local, sin CDN)
+│   │   └── maplibre-gl.css
 │   ├── icons/
 │   │   ├── icon.svg        # Ícono fuente
 │   │   ├── icon-192.png    # Ícono PWA (generar con generar-iconos.html)
 │   │   ├── icon-512.png    # Ícono PWA grande
 │   │   └── generar-iconos.html  # Herramienta para generar PNGs
 │   ├── manifest.json       # Manifiesto PWA
-│   └── sw.js               # Service Worker
+│   └── sw.js               # Service Worker (cachea MapLibre + app shell)
+├── scripts/
+│   └── sync-rg.ps1         # Sincroniza ResponseGrid → Firebase /rg_centros (manual)
+├── gas/
+│   └── upload-fotos.gs     # Google Apps Script para subir fotos a Drive
 ├── database.rules.json     # Reglas de seguridad Firebase RTDB
 ├── firebase.json           # Configuración Firebase Hosting
 ├── .firebaserc             # Proyecto Firebase activo
@@ -123,9 +133,39 @@ firebase database:set /centros datos-ejemplo.json --project TU_PROYECTO_ID
 
 ---
 
-## API REST Documentada
+## Fuentes de Datos
 
-La API REST es la que provee Firebase Realtime Database de forma nativa.
+Acopio VE fusiona dos APIs en tiempo real. Los centros duplicados (< 300 m de distancia) se deduplicados automáticamente — ResponseGrid tiene prioridad.
+
+### 1. ResponseGrid (lectura, centros pre-cargados)
+
+[ResponseGrid](https://responsegrid.app) es una plataforma de gestión de emergencias que provee los centros de acopio verificados Venezuela-wide.
+
+- **Tipo**: lectura pública, sin autenticación
+- **Sincronización**: `scripts/sync-rg.ps1` escribe periódicamente en `/rg_centros` de Firebase (los centros RG se sirven desde ahí para evitar llamadas directas al CDN externo)
+- **Centros**: 574+ en Venezuela y diáspora; campo `_source: "responsegrid"`
+- **Capacidad**: `publicStatus === "active"` → `disponible`, resto → `lleno`
+- **Restricción**: los centros RG son de solo lectura desde la app (no se pueden editar ni eliminar)
+
+```
+Emergency ID: 11111111-1111-4111-8111-111111111111
+Nodo Firebase: /rg_centros
+```
+
+### 2. Firebase Realtime Database (lectura/escritura, centros de usuarios)
+
+La API REST nativa de Firebase maneja los centros agregados por la comunidad, movimientos de insumos, OTPs de operadores y reportes de problemas.
+
+**Base URL:** `https://acopio-ve-2026-default-rtdb.firebaseio.com`
+
+| Nodo | Contenido |
+|------|-----------|
+| `/centros` | Centros agregados por usuarios |
+| `/rg_centros` | Mirror de ResponseGrid (sync manual) |
+| `/centros/{id}/movimientos` | Trazabilidad de entradas/salidas |
+| `/otps/{emailKey}` | Códigos OTP temporales (TTL 15 min) |
+
+## API REST Documentada
 
 **Base URL:** `https://acopio-ve-2026-default-rtdb.firebaseio.com`
 
@@ -297,6 +337,7 @@ Hecho con urgencia y cariño para Venezuela. 🇻🇪
 
 ## Créditos
 
-- Cartografía: [OpenStreetMap](https://openstreetmap.org) contributors
-- Mapa: [Leaflet.js](https://leafletjs.com)
+- Cartografía: [OpenStreetMap](https://openstreetmap.org) contributors / [Esri](https://www.esri.com) (satélite)
+- Mapa: [MapLibre GL JS](https://maplibre.org)
+- Datos de centros: [ResponseGrid](https://responsegrid.app)
 - Base de datos: [Firebase](https://firebase.google.com)
