@@ -7,7 +7,10 @@ Open source, liviano, funciona con señal débil, pensado para emergencias sísm
 
 ## Demo
 
-> **URL en producción:** https://acopio-ve-2026.web.app
+> **App (mapa):** https://acopio-ve-2026.web.app
+> **Landing para difusión:** https://acopio-ve-2026.web.app/donantes.html
+
+`donantes.html` es la página para compartir en estados e historias de WhatsApp, Instagram y Telegram — explica el contexto, muestra los centros en tiempo real y tiene los endpoints de la API abierta.
 
 ---
 
