@@ -104,10 +104,10 @@ const MapaAcopio = (() => {
     if (!mapa) return;
 
     // Limpiar si ya existían (toggle satélite reconstruye todo)
-    ["clusters","cluster-count","punto-activo","punto-dim"].forEach(id => {
+    ["heatmap","clusters","cluster-count","punto-activo","punto-dim"].forEach(id => {
       try { if (mapa.getLayer(id)) mapa.removeLayer(id); } catch (_) {}
     });
-    ["centros-active","centros-dim"].forEach(id => {
+    ["centros-active","centros-dim","centros-heat"].forEach(id => {
       try { if (mapa.getSource(id)) mapa.removeSource(id); } catch (_) {}
     });
 
@@ -125,6 +125,36 @@ const MapaAcopio = (() => {
       type: "geojson",
       data: vacio()
     });
+
+    // Fuente para heatmap: mismos datos filtrados, sin clustering
+    mapa.addSource("centros-heat", {
+      type: "geojson",
+      data: vacio()
+    });
+
+    // Capa 0: heatmap (zoom lejano, desaparece al acercar)
+    try {
+      mapa.addLayer({
+        id: "heatmap",
+        type: "heatmap",
+        source: "centros-heat",
+        maxzoom: 11,
+        paint: {
+          "heatmap-weight": 1,
+          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 0.4, 9, 1.2],
+          "heatmap-color": [
+            "interpolate", ["linear"], ["heatmap-density"],
+            0,   "rgba(0,0,0,0)",
+            0.2, "rgba(46,204,113,0.5)",
+            0.5, "rgba(243,156,18,0.7)",
+            0.8, "rgba(231,76,60,0.85)",
+            1,   "rgba(192,57,43,1)"
+          ],
+          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 18, 9, 30],
+          "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 7, 1, 10, 0]
+        }
+      });
+    } catch (_) {}
 
     // Capa 1: puntos opacos (no filtrados)
     try {
@@ -158,7 +188,8 @@ const MapaAcopio = (() => {
             14, 15, 20, 40, 26
           ],
           "circle-stroke-width": 3,
-          "circle-stroke-color": "rgba(255,255,255,0.35)"
+          "circle-stroke-color": "rgba(255,255,255,0.35)",
+          "circle-opacity": ["interpolate", ["linear"], ["zoom"], 8, 0, 10, 1]
         }
       });
     } catch (_) {}
@@ -240,7 +271,9 @@ const MapaAcopio = (() => {
     const todos   = Object.values(centrosMap);
     const activos = todos.filter(c => filtradosIds.has(c.id) && c.lat && c.lng);
     const opacos  = todos.filter(c => !filtradosIds.has(c.id) && c.lat && c.lng);
-    mapa.getSource("centros-active").setData({ type: "FeatureCollection", features: activos.map(toFeature) });
+    const activosFC = { type: "FeatureCollection", features: activos.map(toFeature) };
+    mapa.getSource("centros-active").setData(activosFC);
+    mapa.getSource("centros-heat").setData(activosFC);
     mapa.getSource("centros-dim").setData({ type: "FeatureCollection", features: opacos.map(toFeature) });
   }
 
