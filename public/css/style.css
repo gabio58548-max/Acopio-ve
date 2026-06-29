@@ -534,6 +534,17 @@ a { color: var(--primary); }
   padding: 8px 12px; font-size: .8rem; line-height: 1.4;
 }
 
+/* ── Botones ENTREGA / NECESIDAD ── */
+.btn-evt-entrega  { background: rgba(46,204,113,.15); color: #27AE60; border: 1.5px solid rgba(46,204,113,.4); font-weight: 700; }
+.btn-evt-entrega:hover  { background: rgba(46,204,113,.25); }
+.btn-evt-necesidad { background: rgba(231,76,60,.15); color: #E74C3C; border: 1.5px solid rgba(231,76,60,.4); font-weight: 700; }
+.btn-evt-necesidad:hover { background: rgba(231,76,60,.25); }
+.evt-btns { margin-bottom: 8px; }
+.evt-offline-aviso {
+  background: rgba(241,196,15,.12); border: 1px solid rgba(241,196,15,.4);
+  color: #d4ac0d; border-radius: var(--radius-sm); padding: 8px 12px; font-size: .8rem;
+}
+
 .info-row { display: flex; gap: 10px; align-items: flex-start; }
 .info-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
 .info-label { font-size: .78rem; color: var(--muted); margin-bottom: 3px; }

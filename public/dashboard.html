@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Acopio VE</title>
+  <style>
+    :root {
+      --bg: #0f1923; --surface: #1a2535; --border: rgba(255,255,255,.1);
+      --text: #e8edf2; --muted: rgba(255,255,255,.45);
+      --verde: #27AE60; --amar: #F39C12; --rojo: #E74C3C; --azul: #2980B9;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; min-height: 100vh; }
+    a { color: var(--azul); }
+
+    /* LOGIN */
+    #login-screen {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; flex-direction: column; gap: 16px;
+    }
+    #login-screen h1 { font-size: 1.4rem; }
+    #login-screen input {
+      padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text); font-size: 1rem; width: 260px;
+    }
+    #login-screen button {
+      padding: 10px 28px; border-radius: 8px; background: var(--azul);
+      color: #fff; border: none; font-size: 1rem; font-weight: 600; cursor: pointer;
+    }
+    #login-error { color: var(--rojo); font-size: .85rem; }
+
+    /* APP */
+    #app { display: none; }
+    header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    header h1 { font-size: 1.1rem; flex: 1; }
+    .hbtn {
+      padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border);
+      background: transparent; color: var(--text); font-size: .82rem; cursor: pointer;
+    }
+    .hbtn:hover { background: rgba(255,255,255,.07); }
+    .hbtn.active { background: var(--azul); border-color: var(--azul); color: #fff; }
+
+    /* STATS */
+    .stats-row {
+      display: flex; gap: 12px; padding: 16px 20px; flex-wrap: wrap;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 20px; flex: 1; min-width: 120px;
+    }
+    .stat-card .num { font-size: 2rem; font-weight: 700; line-height: 1; }
+    .stat-card .lbl { font-size: .75rem; color: var(--muted); margin-top: 4px; }
+    .stat-card.verde .num { color: var(--verde); }
+    .stat-card.rojo  .num { color: var(--rojo); }
+    .stat-card.amar  .num { color: var(--amar); }
+
+    /* CONTENT */
+    .content { padding: 0 20px 20px; }
+    .section-title {
+      font-size: .9rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .05em;
+      margin: 20px 0 10px;
+    }
+
+    /* DEDUP ALERTS */
+    .dedup-list { display: flex; flex-direction: column; gap: 8px; }
+    .dedup-card {
+      background: var(--surface); border: 1px solid rgba(231,76,60,.35);
+      border-radius: 10px; padding: 12px 16px;
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .dedup-card.urgente { border-color: var(--rojo); }
+    .dedup-badge {
+      padding: 3px 10px; border-radius: 20px; font-size: .75rem; font-weight: 700;
+      background: rgba(231,76,60,.2); color: var(--rojo); flex-shrink: 0;
+    }
+    .dedup-badge.confirmed { background: rgba(243,156,18,.2); color: var(--amar); }
+    .dedup-info { flex: 1; }
+    .dedup-nombre { font-weight: 600; font-size: .9rem; }
+    .dedup-sub { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+    .dedup-actions { display: flex; gap: 6px; }
+    .dbtn {
+      padding: 5px 12px; border-radius: 6px; font-size: .78rem; font-weight: 600;
+      cursor: pointer; border: none;
+    }
+    .dbtn-ok     { background: rgba(46,204,113,.2); color: var(--verde); }
+    .dbtn-ignore { background: rgba(255,255,255,.07); color: var(--muted); }
+
+    /* EVENTS TABLE */
+    .events-filters {
+      display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;
+    }
+    .events-filters select, .events-filters input {
+      padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text); font-size: .8rem;
+    }
+    .evt-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    .evt-table th {
+      text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
+      color: var(--muted); font-weight: 600; font-size: .75rem; text-transform: uppercase;
+    }
+    .evt-table td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,.05); vertical-align: top; }
+    .evt-table tr:hover td { background: rgba(255,255,255,.03); }
+    .pill {
+      display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: .72rem; font-weight: 700;
+    }
+    .pill-entrega  { background: rgba(46,204,113,.2); color: var(--verde); }
+    .pill-necesidad { background: rgba(231,76,60,.2); color: var(--rojo); }
+    .pill-offline  { background: rgba(241,196,15,.15); color: var(--amar); }
+    .pill-sync     { background: rgba(41,128,185,.2); color: var(--azul); }
+    .dedup-warn    { background: rgba(231,76,60,.15); border-left: 3px solid var(--rojo); }
+
+    /* EMPTY */
+    .empty { padding: 40px; text-align: center; color: var(--muted); }
+
+    /* SPINNER */
+    .spinner { width: 28px; height: 28px; border: 3px solid rgba(255,255,255,.15); border-top-color: var(--azul); border-radius: 50%; animation: spin .7s linear infinite; margin: 40px auto; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <h1>🔐 Dashboard Acopio VE</h1>
+  <input type="password" id="login-pass" placeholder="Contraseña de admin" autofocus>
+  <button onclick="loginAdmin()">Entrar</button>
+  <span id="login-error"></span>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <h1>📊 Dashboard — Acopio VE</h1>
+    <button class="hbtn active" id="tab-dedup" onclick="mostrarTab('dedup')">🚨 Alertas</button>
+    <button class="hbtn" id="tab-eventos" onclick="mostrarTab('eventos')">📋 Todos los eventos</button>
+    <button class="hbtn" onclick="cargarDatos()">↺ Actualizar</button>
+    <a href="index.html" class="hbtn">← Volver al mapa</a>
+  </header>
+
+  <div class="stats-row" id="stats-row">
+    <div class="stat-card"><div class="num" id="s-total">—</div><div class="lbl">Eventos hoy</div></div>
+    <div class="stat-card verde"><div class="num" id="s-entregas">—</div><div class="lbl">Entregas</div></div>
+    <div class="stat-card rojo"><div class="num" id="s-necesidades">—</div><div class="lbl">Necesidades</div></div>
+    <div class="stat-card amar"><div class="num" id="s-dedup">—</div><div class="lbl">Alertas dedup</div></div>
+    <div class="stat-card"><div class="num" id="s-centros">—</div><div class="lbl">Centros con eventos</div></div>
+  </div>
+
+  <div class="content">
+
+    <!-- TAB DEDUP -->
+    <div id="tab-dedup-content">
+      <div class="section-title">🚨 Necesidades reportadas por múltiples voluntarios (últimas 24h)</div>
+      <div class="dedup-list" id="dedup-list"><div class="spinner"></div></div>
+    </div>
+
+    <!-- TAB EVENTOS -->
+    <div id="tab-eventos-content" style="display:none">
+      <div class="section-title">📋 Registro de eventos</div>
+      <div class="events-filters">
+        <select id="filtro-tipo" onchange="renderTabla()">
+          <option value="">Todos los tipos</option>
+          <option value="entrega">Solo entregas</option>
+          <option value="necesidad">Solo necesidades</option>
+        </select>
+        <select id="filtro-periodo" onchange="renderTabla()">
+          <option value="24">Últimas 24h</option>
+          <option value="48">Últimas 48h</option>
+          <option value="168">Última semana</option>
+          <option value="0">Todos</option>
+        </select>
+        <input type="text" id="filtro-buscar" placeholder="Buscar por centro o insumo..." oninput="renderTabla()" style="flex:1;min-width:180px">
+      </div>
+      <div style="overflow-x:auto">
+        <table class="evt-table">
+          <thead>
+            <tr>
+              <th>Tipo</th><th>Centro</th><th>Insumos</th><th>Cantidad</th>
+              <th>Voluntario</th><th>Hora</th><th>Sync</th>
+            </tr>
+          </thead>
+          <tbody id="eventos-tbody"></tbody>
+        </table>
+      </div>
+      <div id="tabla-empty" class="empty" style="display:none">Sin eventos en este período.</div>
+    </div>
+
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script>
+const DB = FIREBASE_CONFIG.databaseURL;
+let todos = [];       // todos los centros
+let eventos = [];     // todos los eventos
+let resueltos = new Set(JSON.parse(localStorage.getItem("acopio_resueltos") || "[]"));
+
+// ── AUTH ──
+function loginAdmin() {
+  const pass = document.getElementById("login-pass").value;
+  if (!ADMIN_PASSWORD || pass === ADMIN_PASSWORD) {
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    cargarDatos();
+  } else {
+    document.getElementById("login-error").textContent = "Contraseña incorrecta.";
+  }
+}
+document.getElementById("login-pass").addEventListener("keydown", e => { if (e.key === "Enter") loginAdmin(); });
+
+// ── TABS ──
+function mostrarTab(tab) {
+  document.getElementById("tab-dedup-content").style.display  = tab === "dedup"    ? "" : "none";
+  document.getElementById("tab-eventos-content").style.display = tab === "eventos"  ? "" : "none";
+  document.getElementById("tab-dedup").classList.toggle("active",  tab === "dedup");
+  document.getElementById("tab-eventos").classList.toggle("active", tab === "eventos");
+}
+
+// ── CARGA ──
+async function cargarDatos() {
+  try {
+    const [centrosRG, centrosFB, evtsRaw] = await Promise.all([
+      fetch(`${DB}/rg_centros.json`).then(r => r.json()).catch(() => ({})),
+      fetch(`${DB}/centros.json`).then(r => r.json()).catch(() => ({})),
+      fetch(`${DB}/eventos.json`).then(r => r.json()).catch(() => ({}))
+    ]);
+
+    const centrosMap = {};
+    Object.entries(centrosRG || {}).forEach(([id, c]) => { centrosMap[id] = c; });
+    Object.entries(centrosFB || {}).forEach(([id, c]) => { if (!centrosMap[id]) centrosMap[id] = c; });
+    todos = centrosMap;
+
+    eventos = Object.values(evtsRaw || {}).sort((a,b) => b.ts - a.ts);
+
+    renderStats();
+    renderDedup();
+    renderTabla();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// ── STATS ──
+function renderStats() {
+  const hoy = Date.now() - 24*60*60*1000;
+  const hoy_evts = eventos.filter(e => e.ts > hoy);
+  document.getElementById("s-total").textContent = hoy_evts.length;
+  document.getElementById("s-entregas").textContent = hoy_evts.filter(e => e.tipo === "entrega").length;
+  document.getElementById("s-necesidades").textContent = hoy_evts.filter(e => e.tipo === "necesidad").length;
+  document.getElementById("s-centros").textContent = new Set(hoy_evts.map(e => e.centroId)).size;
+}
+
+// ── DEDUPLICACIÓN ──
+function renderDedup() {
+  const ventana = Date.now() - 24*60*60*1000;
+  const necesidades = eventos.filter(e => e.tipo === "necesidad" && e.ts > ventana);
+
+  // Agrupar por centroId + insumo
+  const grupos = {};
+  necesidades.forEach(evt => {
+    (evt.insumos || []).forEach(insumo => {
+      const key = `${evt.centroId}::${insumo}`;
+      if (!grupos[key]) grupos[key] = { centroId: evt.centroId, insumo, eventos: [] };
+      grupos[key].eventos.push(evt);
+    });
+  });
+
+  // Solo mostrar grupos con 2+ reportes y no resueltos
+  const alertas = Object.values(grupos)
+    .filter(g => g.eventos.length >= 2 && !resueltos.has(`${g.centroId}::${g.insumo}`))
+    .sort((a,b) => b.eventos.length - a.eventos.length);
+
+  document.getElementById("s-dedup").textContent = alertas.length;
+
+  const container = document.getElementById("dedup-list");
+  if (!alertas.length) {
+    container.innerHTML = `<div class="empty">Sin alertas de duplicados. Todo bajo control.</div>`;
+    return;
+  }
+
+  container.innerHTML = alertas.map(g => {
+    const centro = todos[g.centroId];
+    const nombre = centro ? centro.nombre : g.centroId;
+    const ubicacion = centro ? `${centro.municipio || ""}, ${centro.estado || ""}` : "";
+    const urgente = g.eventos.length >= 3;
+    const voluntarios = [...new Set(g.eventos.map(e => e.voluntario || "anónimo"))].slice(0,3).join(", ");
+    return `
+      <div class="dedup-card ${urgente ? "urgente" : ""}">
+        <span class="dedup-badge ${urgente ? "" : "confirmed"}">${g.eventos.length} reportes</span>
+        <div class="dedup-info">
+          <div class="dedup-nombre">🆘 ${g.insumo} — ${nombre}</div>
+          <div class="dedup-sub">${ubicacion} · Voluntarios: ${voluntarios}</div>
+        </div>
+        <div class="dedup-actions">
+          <button class="dbtn dbtn-ok" onclick="marcarResuelto('${g.centroId}','${g.insumo}')">✓ Atendido</button>
+          <button class="dbtn dbtn-ignore" onclick="marcarResuelto('${g.centroId}','${g.insumo}')">Ignorar</button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function marcarResuelto(centroId, insumo) {
+  resueltos.add(`${centroId}::${insumo}`);
+  localStorage.setItem("acopio_resueltos", JSON.stringify([...resueltos]));
+  renderDedup();
+}
+
+// ── TABLA ──
+function renderTabla() {
+  const tipo    = document.getElementById("filtro-tipo").value;
+  const horas   = parseInt(document.getElementById("filtro-periodo").value);
+  const buscar  = document.getElementById("filtro-buscar").value.toLowerCase();
+  const desde   = horas ? Date.now() - horas*60*60*1000 : 0;
+
+  // Detectar duplicados para marcar filas
+  const ventana = Date.now() - 24*60*60*1000;
+  const conteo = {};
+  eventos.filter(e => e.tipo === "necesidad" && e.ts > ventana).forEach(e => {
+    (e.insumos||[]).forEach(i => {
+      const k = `${e.centroId}::${i}`;
+      conteo[k] = (conteo[k]||0)+1;
+    });
+  });
+
+  let filtrados = eventos.filter(e => {
+    if (tipo && e.tipo !== tipo) return false;
+    if (desde && e.ts < desde) return false;
+    if (buscar) {
+      const centro = todos[e.centroId];
+      const nombre = centro ? centro.nombre.toLowerCase() : e.centroId;
+      const ins = (e.insumos||[]).join(" ").toLowerCase();
+      if (!nombre.includes(buscar) && !ins.includes(buscar)) return false;
+    }
+    return true;
+  });
+
+  const tbody = document.getElementById("eventos-tbody");
+  const empty = document.getElementById("tabla-empty");
+
+  if (!filtrados.length) {
+    tbody.innerHTML = "";
+    empty.style.display = "";
+    return;
+  }
+  empty.style.display = "none";
+
+  tbody.innerHTML = filtrados.map(e => {
+    const centro = todos[e.centroId];
+    const nombre = centro ? centro.nombre : e.centroId;
+    const insumos = (e.insumos||[]).join(", ");
+    const hora  = e.ts ? new Date(e.ts).toLocaleString("es-VE", {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "—";
+    const esDedup = e.tipo === "necesidad" && (e.insumos||[]).some(i => (conteo[`${e.centroId}::${i}`]||0) >= 2);
+    const cantLabel = {poco:"Poco",moderado:"Moderado",mucho:"Mucho"}[e.cantidad] || e.cantidad || "—";
+    return `<tr class="${esDedup ? "dedup-warn" : ""}">
+      <td><span class="pill pill-${e.tipo}">${e.tipo === "entrega" ? "📦 Recibido" : "🆘 Falta"}</span>${esDedup ? ' <span class="pill pill-offline">dedup</span>' : ""}</td>
+      <td>${escHtml(nombre)}</td>
+      <td>${escHtml(insumos)}</td>
+      <td>${escHtml(cantLabel)}</td>
+      <td><small>${escHtml(e.voluntario||"anónimo")}</small></td>
+      <td><small>${hora}</small></td>
+      <td><span class="pill ${e.sincronizado ? "pill-sync" : "pill-offline"}">${e.sincronizado ? "✓" : "⏳"}</span></td>
+    </tr>`;
+  }).join("");
+}
+
+function escHtml(s) {
+  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// Auto-refresh cada 60s
+setInterval(cargarDatos, 60000);
+</script>
+</body>
+</html>

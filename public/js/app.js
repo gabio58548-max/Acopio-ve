@@ -1566,6 +1566,8 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     document.getElementById("btn-operadores").classList.add("hidden");
     if (centroActivo) document.getElementById("op-panel-controles").classList.remove("hidden");
     document.body.classList.add("op-mode");
+    const btnDash = document.getElementById("btn-dashboard");
+    if (btnDash) btnDash.style.display = "";
   }
 
   function cerrarSesionOperador() {
@@ -1575,6 +1577,8 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     document.getElementById("btn-operadores").classList.remove("hidden");
     document.getElementById("op-panel-controles").classList.add("hidden");
     document.body.classList.remove("op-mode");
+    const btnDash = document.getElementById("btn-dashboard");
+    if (btnDash) btnDash.style.display = "none";
     mostrarToast("Sesión de operador cerrada.", "info");
   }
 
@@ -1933,6 +1937,7 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     })();
 
     enlazarFiltros();
+    enlazarEventos();
     iniciarAutocompleteDireccion();
   }
 
@@ -1997,6 +2002,134 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     if (h < 24) return `hace ${h}h`;
     if (d === 1) return "ayer";
     return `hace ${d} días`;
+  }
+
+  /* ══════════════════════════════════════════
+     EVENTOS — ENTREGA / NECESIDAD
+     ══════════════════════════════════════════ */
+  const EVENTOS_OFFLINE_KEY = "acopio_eventos_offline";
+
+  function generarEventoId(centroId, tipo) {
+    const now   = new Date();
+    const fecha = now.toISOString().slice(0,10).replace(/-/g,"");
+    const hora  = now.toTimeString().slice(0,5).replace(":","");
+    const rand  = Math.random().toString(36).slice(2,5).toUpperCase();
+    const code  = centroId.slice(-4).toUpperCase();
+    return `EVT-${code}-${tipo.toUpperCase()}-${fecha}-${hora}-${rand}`;
+  }
+
+  function abrirModalEvento(tipo) {
+    if (!centroActivo) return;
+    document.getElementById("evt-tipo").value = tipo;
+    document.getElementById("evt-centro-id").value = centroActivo;
+    document.getElementById("evt-titulo").textContent =
+      tipo === "entrega" ? "📦 ¿Qué llegó al centro?" : "🆘 ¿Qué falta en el centro?";
+    document.getElementById("evt-nota").value = "";
+    document.getElementById("evt-cantidad").value = "moderado";
+    document.querySelectorAll("#evt-insumos input").forEach(cb => cb.checked = false);
+    document.getElementById("evt-offline-aviso").classList.toggle("hidden", navigator.onLine);
+    document.getElementById("modal-evento").classList.remove("hidden");
+  }
+
+  function cerrarModalEvento() {
+    document.getElementById("modal-evento").classList.add("hidden");
+  }
+
+  async function submitEvento() {
+    const tipo      = document.getElementById("evt-tipo").value;
+    const centroId  = document.getElementById("evt-centro-id").value;
+    const insumos   = [...document.querySelectorAll("#evt-insumos input:checked")].map(cb => cb.value);
+    const cantidad  = document.getElementById("evt-cantidad").value;
+    const nota      = document.getElementById("evt-nota").value.trim();
+
+    if (!insumos.length) { mostrarToast("Selecciona al menos un insumo.", "err"); return; }
+
+    const id = generarEventoId(centroId, tipo);
+    const evento = {
+      id, centroId, tipo, insumos, cantidad,
+      nota: nota || null,
+      voluntario: opEmail || "anonimo",
+      ts: Date.now(),
+      sincronizado: false
+    };
+
+    const btn = document.getElementById("btn-submit-evento");
+    btn.disabled = true; btn.textContent = "Guardando...";
+
+    try {
+      if (navigator.onLine) {
+        await fetch(`${FIREBASE_CONFIG.databaseURL}/eventos/${id}.json`, {
+          method: "PUT",
+          body: JSON.stringify({ ...evento, sincronizado: true })
+        });
+        evento.sincronizado = true;
+        mostrarToast(tipo === "entrega" ? "Entrega registrada." : "Necesidad registrada.", "ok");
+      } else {
+        guardarEventoOffline(evento);
+        mostrarToast("Guardado sin conexión — se subirá cuando haya señal.", "ok");
+      }
+    } catch (_) {
+      guardarEventoOffline(evento);
+      mostrarToast("Sin conexión — guardado localmente.", "ok");
+    } finally {
+      btn.disabled = false; btn.textContent = "Registrar";
+      cerrarModalEvento();
+    }
+  }
+
+  function guardarEventoOffline(evento) {
+    let cola = [];
+    try { cola = JSON.parse(localStorage.getItem(EVENTOS_OFFLINE_KEY) || "[]"); } catch (_) {}
+    cola.push(evento);
+    localStorage.setItem(EVENTOS_OFFLINE_KEY, JSON.stringify(cola));
+  }
+
+  async function sincronizarEventosOffline() {
+    let cola = [];
+    try { cola = JSON.parse(localStorage.getItem(EVENTOS_OFFLINE_KEY) || "[]"); } catch (_) {}
+    if (!cola.length) return;
+
+    const pendientes = cola.filter(e => !e.sincronizado);
+    if (!pendientes.length) return;
+
+    let subidos = 0;
+    for (const evento of pendientes) {
+      try {
+        await fetch(`${FIREBASE_CONFIG.databaseURL}/eventos/${evento.id}.json`, {
+          method: "PUT",
+          body: JSON.stringify({ ...evento, sincronizado: true })
+        });
+        evento.sincronizado = true;
+        subidos++;
+      } catch (_) { break; }
+    }
+
+    localStorage.setItem(EVENTOS_OFFLINE_KEY, JSON.stringify(cola.filter(e => !e.sincronizado)));
+    if (subidos > 0) mostrarToast(`${subidos} evento(s) sincronizado(s).`, "ok");
+  }
+
+  function enlazarEventos() {
+    // Poblar checkboxes de insumos
+    const container = document.getElementById("evt-insumos");
+    if (container && !container.children.length) {
+      TIPOS_INSUMO.forEach(tipo => {
+        const label = document.createElement("label");
+        label.className = "check-label";
+        label.innerHTML = `<input type="checkbox" value="${tipo}"><span>${tipo}</span>`;
+        container.appendChild(label);
+      });
+    }
+
+    document.getElementById("btn-evt-entrega").addEventListener("click", () => abrirModalEvento("entrega"));
+    document.getElementById("btn-evt-necesidad").addEventListener("click", () => abrirModalEvento("necesidad"));
+    document.getElementById("btn-cerrar-evento").addEventListener("click", cerrarModalEvento);
+    document.getElementById("btn-cancelar-evento").addEventListener("click", cerrarModalEvento);
+    document.getElementById("backdrop-evento").addEventListener("click", cerrarModalEvento);
+    document.getElementById("btn-submit-evento").addEventListener("click", submitEvento);
+
+    // Sincronizar al recuperar conexión
+    window.addEventListener("online", sincronizarEventosOffline);
+    if (navigator.onLine) sincronizarEventosOffline();
   }
 
   /* API pública del módulo (para llamadas desde HTML generado) */

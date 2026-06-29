@@ -175,6 +175,10 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
             Widget
           </button>
+          <a href="dashboard.html" class="btn btn-ghost btn-sm" id="btn-dashboard" style="display:none;text-decoration:none" title="Dashboard de coordinación — solo admins">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Dashboard
+          </a>
         </div>
       </div>
 
@@ -309,6 +313,11 @@
       </div>
 
       <div class="panel-foot">
+        <!-- Botones de evento rápido -->
+        <div class="panel-foot-row evt-btns">
+          <button id="btn-evt-entrega" class="btn btn-evt-entrega full-width">📦 Recibido</button>
+          <button id="btn-evt-necesidad" class="btn btn-evt-necesidad full-width">🆘 Falta</button>
+        </div>
         <button id="btn-panel-actualizar" class="btn btn-primary full-width" title="Actualizar la capacidad, insumos o información de contacto de este centro">Actualizar Estado</button>
         <div class="panel-foot-row">
           <button id="btn-panel-wa" class="btn btn-wa full-width">
@@ -347,6 +356,44 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL: REGISTRAR EVENTO (ENTREGA / NECESIDAD) ═══ -->
+  <div id="modal-evento" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" id="backdrop-evento"></div>
+    <div class="modal-box modal-sm">
+      <div class="modal-head">
+        <h2 id="evt-titulo">Registrar evento</h2>
+        <button id="btn-cerrar-evento" class="btn-icon-only">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="evt-tipo">
+        <input type="hidden" id="evt-centro-id">
+        <div class="form-group">
+          <label>¿Qué insumos? <span class="req">*</span></label>
+          <div id="evt-insumos" class="check-group check-wrap"></div>
+        </div>
+        <div class="form-group">
+          <label for="evt-cantidad">Cantidad aproximada</label>
+          <select id="evt-cantidad" class="form-select">
+            <option value="poco">Poco (menos de 10 unidades)</option>
+            <option value="moderado" selected>Moderado (10–50 unidades)</option>
+            <option value="mucho">Mucho (más de 50 unidades)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="evt-nota">Nota (opcional)</label>
+          <textarea id="evt-nota" rows="2" maxlength="300" placeholder="Detalle adicional..."></textarea>
+        </div>
+        <div id="evt-offline-aviso" class="evt-offline-aviso hidden">
+          📵 Sin conexión — se guardará y subirá cuando haya señal
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button id="btn-cancelar-evento" class="btn btn-ghost">Cancelar</button>
+        <button id="btn-submit-evento" class="btn btn-primary">Registrar</button>
       </div>
     </div>
   </div>
