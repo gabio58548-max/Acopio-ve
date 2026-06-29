@@ -1020,6 +1020,8 @@ a { color: var(--primary); }
   #map-leyenda { display: none; }
   /* Stats: mostrar etiquetas pequeñas en móvil */
   .hstat-lbl { display: block; font-size: .48rem; }
+  /* Quick filter: ocultar select de estado en móvil (está en sidebar) */
+  #qf-estado { display: none; }
   .hstat-num { font-size: .95rem; font-weight: 800; }
 
   /* Sidebar como drawer desde la derecha */
