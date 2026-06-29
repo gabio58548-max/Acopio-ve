@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acopio VE — Mapa de Centros</title>
+  <link rel="stylesheet" href="lib/maplibre-gl.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #1C1C1E; color: #fff; font-family: system-ui, sans-serif; }
+    #map { width: 100%; height: 100%; }
+    #embed-overlay {
+      position: absolute; bottom: 10px; right: 10px; z-index: 20;
+      background: rgba(28,28,30,.85); border-radius: 8px;
+      padding: 6px 10px; font-size: .72rem; color: rgba(255,255,255,.6);
+      backdrop-filter: blur(4px);
+    }
+    #embed-overlay a { color: #4fc3f7; text-decoration: none; }
+    #embed-overlay a:hover { text-decoration: underline; }
+    #embed-popup {
+      position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%);
+      width: min(340px, 90vw); background: #1e2a3a; border: 1px solid rgba(255,255,255,.12);
+      border-radius: 12px; padding: 14px 16px; z-index: 30; display: none;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    }
+    #embed-popup h3 { font-size: .95rem; margin-bottom: 4px; }
+    #embed-popup .ep-sub { font-size: .78rem; color: rgba(255,255,255,.5); margin-bottom: 8px; }
+    #embed-popup .ep-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: .72rem; font-weight: 600; margin-bottom: 8px;
+    }
+    .ep-verde { background: rgba(46,204,113,.2); color: #27AE60; }
+    .ep-amar  { background: rgba(243,156,18,.2); color: #F39C12; }
+    .ep-rojo  { background: rgba(231,76,60,.2);  color: #E74C3C; }
+    #embed-popup .ep-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+    #embed-popup .ep-tag {
+      background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15);
+      border-radius: 10px; padding: 2px 7px; font-size: .7rem;
+    }
+    #embed-popup .ep-actions { display: flex; gap: 8px; }
+    #embed-popup .ep-btn {
+      flex: 1; padding: 7px; border-radius: 8px; font-size: .8rem; font-weight: 600;
+      cursor: pointer; border: none; text-align: center; text-decoration: none;
+      display: block;
+    }
+    .ep-btn-primary { background: #1565C0; color: #fff; }
+    .ep-btn-ghost   { background: rgba(255,255,255,.08); color: rgba(255,255,255,.7); }
+    #embed-popup .ep-close {
+      position: absolute; top: 10px; right: 12px; background: none; border: none;
+      color: rgba(255,255,255,.4); cursor: pointer; font-size: 1rem; line-height: 1;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="embed-overlay">
+  Mapa por <a href="https://acopio-ve-2026.web.app" target="_blank">Acopio VE</a>
+</div>
+<div id="embed-popup">
+  <button id="ep-close" class="ep-close">✕</button>
+  <h3 id="ep-nombre"></h3>
+  <div class="ep-sub" id="ep-ubicacion"></div>
+  <span class="ep-badge" id="ep-badge"></span>
+  <div class="ep-tags" id="ep-tags"></div>
+  <div class="ep-actions">
+    <a id="ep-maps" href="#" target="_blank" class="ep-btn ep-btn-ghost">Cómo llegar</a>
+    <a id="ep-full" href="https://acopio-ve-2026.web.app" target="_blank" class="ep-btn ep-btn-primary">Ver completo</a>
+  </div>
+</div>
+
+<script src="lib/firebase-app.js"></script>
+<script src="lib/firebase-database.js"></script>
+<script src="lib/maplibre-gl.js"></script>
+<script src="js/config.js"></script>
+<script src="js/map.js"></script>
+<script>
+(async () => {
+  const DB_URL = FIREBASE_CONFIG.databaseURL;
+
+  async function cargar() {
+    const [rg, fb] = await Promise.all([
+      fetch(`${DB_URL}/rg_centros.json`).then(r => r.json()).catch(() => ({})),
+      fetch(`${DB_URL}/centros.json`).then(r => r.json()).catch(() => ({}))
+    ]);
+    const map = {};
+    Object.entries(rg || {}).forEach(([id, c]) => { map[id] = { ...c, id, _source: "responsegrid" }; });
+    Object.entries(fb || {}).forEach(([id, c]) => {
+      if (!map[id]) map[id] = { ...c, id, _source: "firebase" };
+    });
+    return Object.values(map).filter(c => c.lat && c.lng);
+  }
+
+  const centros = await cargar();
+  const todos = new Set(centros.map(c => c.id));
+
+  MapaAcopio.init(document.getElementById("map"));
+  await new Promise(r => setTimeout(r, 600));
+  MapaAcopio.sincronizarCentros(centros, todos);
+
+  document.getElementById("map").addEventListener("click", e => {
+    const feat = MapaAcopio._queryClick && MapaAcopio._queryClick(e);
+    if (!feat) return;
+    const c = centros.find(x => x.id === feat.properties.id);
+    if (!c) return;
+    const capLabel = { disponible: "Disponible", parcial: "Parcial", lleno: "Lleno" };
+    const capClass = { disponible: "ep-verde", parcial: "ep-amar", lleno: "ep-rojo" };
+    document.getElementById("ep-nombre").textContent = c.nombre;
+    document.getElementById("ep-ubicacion").textContent = [c.municipio, c.estado].filter(Boolean).join(", ");
+    const badge = document.getElementById("ep-badge");
+    badge.textContent = capLabel[c.capacidad] || c.capacidad;
+    badge.className = `ep-badge ${capClass[c.capacidad] || "ep-amar"}`;
+    const insumos = Array.isArray(c.insumos) ? c.insumos : Object.values(c.insumos || {});
+    document.getElementById("ep-tags").innerHTML = insumos.slice(0,5).map(i => `<span class="ep-tag">${i}</span>`).join("");
+    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}`;
+    document.getElementById("ep-maps").href = mapsUrl;
+    document.getElementById("ep-full").href = `https://acopio-ve-2026.web.app?id=${c.id}`;
+    document.getElementById("embed-popup").style.display = "block";
+  });
+
+  document.getElementById("ep-close").addEventListener("click", () => {
+    document.getElementById("embed-popup").style.display = "none";
+  });
+})();
+</script>
+</body>
+</html>

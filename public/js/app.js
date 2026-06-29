@@ -279,6 +279,9 @@ const App = (() => {
 
     const ts = c.actualizadoEn || c.creadoEn;
     setText("p-actualizado", ts ? "Actualizado " + formatearTiempo(ts) : "Sin fecha");
+    const staleBanner = document.getElementById("p-stale-banner");
+    const staleMs = 48 * 60 * 60 * 1000;
+    staleBanner.classList.toggle("hidden", !ts || (Date.now() - ts) < staleMs);
 
     // Cómo llegar
     const navRow = document.getElementById("p-nav-row");
@@ -1804,6 +1807,14 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     document.getElementById("btn-exportar-csv").addEventListener("click", exportarCSV);
     document.getElementById("btn-exportar-pdf").addEventListener("click", exportarPDF);
     document.getElementById("btn-difundir-wa").addEventListener("click", abrirModalWA);
+    document.getElementById("btn-widget").addEventListener("click", () => {
+      const codigo = `<iframe src="https://acopio-ve-2026.web.app/embed.html" width="100%" height="500" style="border:none;border-radius:12px" title="Mapa de Centros de Acopio Venezuela"></iframe>`;
+      navigator.clipboard.writeText(codigo).then(() => {
+        mostrarToast("Código del widget copiado. Pégalo en tu sitio web.", "ok");
+      }).catch(() => {
+        prompt("Copia este código:", codigo);
+      });
+    });
     document.getElementById("btn-cerrar-wa").addEventListener("click", cerrarModalWA);
     document.getElementById("backdrop-wa").addEventListener("click", cerrarModalWA);
     document.getElementById("btn-cerrar-qr").addEventListener("click", cerrarModalQR);
@@ -1812,6 +1823,20 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     document.getElementById("btn-toggle-satellite").addEventListener("click", () => {
       const tipo = MapaAcopio.toggleSatelite();
       document.getElementById("satellite-label").textContent = tipo === "satellite" ? "Mapa" : "Satélite";
+    });
+
+    document.getElementById("btn-cerca-mi").addEventListener("click", () => {
+      obtenerUbicacionUsuario(() => {
+        MapaAcopio.volarA(userLat, userLng, 12);
+        sortMode = "distancia";
+        document.getElementById("btn-sort-label").textContent = "Más cercanos";
+        actualizarUI();
+        const cercanos = todosLosCentros
+          .filter(c => c.lat && c.lng && filtradosIds.has(c.id))
+          .sort((a,b) => calcularDistancia(userLat,userLng,a.lat,a.lng) - calcularDistancia(userLat,userLng,b.lat,b.lng))
+          .slice(0,3);
+        if (cercanos.length) mostrarToast(`${cercanos.length} centros más cercanos a ti`, "ok");
+      });
     });
 
     // Búsqueda por nombre
