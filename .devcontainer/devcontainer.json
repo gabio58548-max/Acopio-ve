@@ -1,0 +1,18 @@
+{
+  "name": "Acopio VE",
+  "image": "mcr.microsoft.com/devcontainers/node:20",
+  "postCreateCommand": "npm install -g firebase-tools",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "esbenp.prettier-vscode",
+        "ritwickdey.LiveServer"
+      ]
+    }
+  },
+  "forwardPorts": [5000, 5001],
+  "portsAttributes": {
+    "5000": { "label": "Firebase Hosting" },
+    "5001": { "label": "Firebase Emulator" }
+  }
+}
