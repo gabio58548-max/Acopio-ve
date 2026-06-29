@@ -200,9 +200,13 @@ let eventos = [];     // todos los eventos
 let resueltos = new Set(JSON.parse(localStorage.getItem("acopio_resueltos") || "[]"));
 
 // ── AUTH ──
-function loginAdmin() {
+const DASHBOARD_HASH = "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
+
+async function loginAdmin() {
   const pass = document.getElementById("login-pass").value;
-  if (!ADMIN_PASSWORD || pass === ADMIN_PASSWORD) {
+  const buf  = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pass));
+  const hash = [...new Uint8Array(buf)].map(x => x.toString(16).padStart(2,"0")).join("");
+  if (hash === DASHBOARD_HASH) {
     document.getElementById("login-screen").style.display = "none";
     document.getElementById("app").style.display = "block";
     cargarDatos();
