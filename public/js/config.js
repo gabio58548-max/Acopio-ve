@@ -94,11 +94,10 @@ const OPERADORES_EMAILS = [
 ];
 
 /* ────────────────────────────────────────────────
-   FOTOS — Google Drive via Apps Script
+   FOTOS — imgbb (https://imgbb.com)
    ────────────────────────────────────────────────
-   1. Ve a script.google.com → Nuevo proyecto
-   2. Pega el código de upload-fotos.gs
-   3. Despliega como Web App (Ejecutar como: Yo, Acceso: Cualquiera)
-   4. Copia la URL del Web App aquí
+   1. Crea cuenta gratuita en https://imgbb.com
+   2. Ve a https://api.imgbb.com y copia tu API key
+   3. Ponla en config.local.js: IMGBB_API_KEY = "tu_key"
    ──────────────────────────────────────────────── */
-const DRIVE_UPLOAD_URL = ""; // Pega aquí la URL de tu Apps Script Web App
+let IMGBB_API_KEY = null;

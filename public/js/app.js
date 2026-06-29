@@ -575,12 +575,12 @@ const App = (() => {
   }
 
   /* ══════════════════════════════════════════
-     FOTOS — Firebase Storage REST API
+     FOTOS — imgbb (https://api.imgbb.com)
      ══════════════════════════════════════════ */
-  async function subirFotoDrive(file, centroId) {
-    if (!DRIVE_UPLOAD_URL) throw new Error("Configura DRIVE_UPLOAD_URL en config.js con la URL de tu Apps Script.");
+  async function subirFoto(file, centroId) {
+    if (!IMGBB_API_KEY) throw new Error("Configura IMGBB_API_KEY en config.local.js");
 
-    // Redimensionar a máx 1200px y comprimir a JPEG antes de enviar
+    // Redimensionar a máx 1200px y comprimir a JPEG
     const base64 = await new Promise((resolve, reject) => {
       const img    = new Image();
       const objUrl = URL.createObjectURL(file);
@@ -598,16 +598,15 @@ const App = (() => {
       img.src = objUrl;
     });
 
-    // Enviar sin Content-Type JSON para evitar CORS preflight en Apps Script
-    const res  = await fetch(DRIVE_UPLOAD_URL, {
-      method: "POST",
-      body:   JSON.stringify({ base64, mimeType: "image/jpeg", filename: `foto_${centroId}_${Date.now()}.jpg`, centroId })
-    });
-    const text = await res.text();
-    let data;
-    try { data = JSON.parse(text); } catch (_) { throw new Error("Respuesta inesperada del servidor: " + text.slice(0, 120)); }
-    if (!data.success) throw new Error(data.error || "Error desconocido al subir a Drive");
-    return data.url;
+    const form = new FormData();
+    form.append("key",   IMGBB_API_KEY);
+    form.append("image", base64);
+    form.append("name",  `foto_${centroId}_${Date.now()}`);
+
+    const res  = await fetch("https://api.imgbb.com/1/upload", { method: "POST", body: form });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error?.message || "Error al subir imagen");
+    return data.data.url;
   }
 
   async function opAgregarFoto(file) {
@@ -615,7 +614,7 @@ const App = (() => {
     const label = document.getElementById("btn-op-foto-label");
     label.textContent = "Subiendo...";
     try {
-      const fotoUrl = await subirFotoDrive(file, centroActivo);
+      const fotoUrl = await subirFoto(file, centroActivo);
       const c = todosLosCentros.find(x => x.id === centroActivo);
       const fotos = Array.isArray(c?.fotos) ? [...c.fotos, fotoUrl] : [fotoUrl];
       const res = await fetch(`${FIREBASE_CONFIG.databaseURL}/centros/${centroActivo}.json`, {
