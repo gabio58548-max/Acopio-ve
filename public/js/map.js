@@ -32,6 +32,7 @@ const MapaAcopio = (() => {
   const STYLE_MAPA = "https://tiles.openfreemap.org/styles/bright";
   const STYLE_SAT  = {
     version: 8,
+    glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
     sources: {
       esri: {
         type: "raster",
@@ -162,7 +163,23 @@ const MapaAcopio = (() => {
       });
     } catch (_) {}
 
-    // Capa 3: número dentro del cluster — se omite para evitar dependencia de fuentes de glifos
+    // Capa 3: número dentro del cluster
+    try {
+      mapa.addLayer({
+        id: "cluster-count",
+        type: "symbol",
+        source: "centros-active",
+        filter: ["has", "point_count"],
+        layout: {
+          "text-field": ["get", "point_count_abbreviated"],
+          "text-font": ["Noto Sans Regular"],
+          "text-size": 13
+        },
+        paint: {
+          "text-color": "#ffffff"
+        }
+      });
+    } catch (_) {}
 
     // Capa 4: puntos individuales (sin cluster) — crítica
     try {

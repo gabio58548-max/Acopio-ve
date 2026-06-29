@@ -1,0 +1,18 @@
+name: Sync ResponseGrid → Firebase
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # cada 6 horas
+  workflow_dispatch:          # también se puede lanzar manualmente desde GitHub
+
+jobs:
+  sync:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sincronizar ResponseGrid → Firebase
+        shell: pwsh
+        run: .\scripts\sync-rg.ps1

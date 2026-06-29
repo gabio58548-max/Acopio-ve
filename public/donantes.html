@@ -6,7 +6,7 @@
   <title>Acopio VE — Dona, Registra, Actúa</title>
   <meta name="description" content="Mapa en tiempo real de centros de acopio para el terremoto de Venezuela 2026. Encuentra dónde donar, registra tu centro o accede a los datos abiertos.">
   <meta property="og:title" content="Acopio VE — Encuentra dónde donar en Venezuela">
-  <meta property="og:description" content="395 centros verificados. Filtra por estado, capacidad e insumos. Gratis, sin registro, funciona en el celular.">
+  <meta property="og:description" content="574+ centros verificados. Filtra por estado, capacidad e insumos. Gratis, sin registro, funciona en el celular.">
   <meta property="og:url" content="https://acopio-ve-2026.web.app/donantes.html">
   <link rel="icon" href="/icons/icon-192.png">
   <style>
@@ -367,8 +367,8 @@
   </div>
   <h1>Sabe dónde donar.<br>Sabe que <em>llegó</em>.</h1>
   <p class="hero-sub">
-    Mapa en tiempo real con 395+ centros de acopio verificados
-    en 18 estados de Venezuela. Sin registro, desde el celular.
+    Mapa en tiempo real con <span id="hero-total">574+</span> centros de acopio verificados
+    en Venezuela. Sin registro, desde el celular.
   </p>
   <div class="hero-btns">
     <a href="https://acopio-ve-2026.web.app" class="btn-primary">Ver centros cerca de mí</a>
@@ -376,11 +376,11 @@
   </div>
   <div class="stats-row">
     <div class="stat-item">
-      <div class="stat-n red">395+</div>
+      <div class="stat-n red" id="stat-total">574+</div>
       <div class="stat-label">Centros verificados</div>
     </div>
     <div class="stat-item">
-      <div class="stat-n green">18</div>
+      <div class="stat-n green" id="stat-estados">—</div>
       <div class="stat-label">Estados cubiertos</div>
     </div>
     <div class="stat-item">
@@ -533,5 +533,29 @@
   </div>
 </footer>
 
+<script>
+(async () => {
+  const FB = "https://acopio-ve-2026-default-rtdb.firebaseio.com";
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch(`${FB}/centros.json?shallow=true`).then(r => r.json()),
+      fetch(`${FB}/rg_centros.json?shallow=true`).then(r => r.json())
+    ]);
+    const total = (r1 ? Object.keys(r1).length : 0) + (r2 ? Object.keys(r2).length : 0);
+
+    // Contar estados únicos (solo necesitamos los valores de rg_centros para no sobrecargar)
+    const rgFull = await fetch(`${FB}/rg_centros.json`).then(r => r.json());
+    const estados = new Set(Object.values(rgFull || {}).map(c => c.estado).filter(Boolean));
+
+    if (total > 0) {
+      document.getElementById("stat-total").textContent  = total.toLocaleString("es-VE") + "+";
+      document.getElementById("hero-total").textContent  = total.toLocaleString("es-VE") + "+";
+    }
+    if (estados.size > 0) {
+      document.getElementById("stat-estados").textContent = estados.size;
+    }
+  } catch (_) {}
+})();
+</script>
 </body>
 </html>
