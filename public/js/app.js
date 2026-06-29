@@ -2022,9 +2022,15 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     if (!centroActivo) return;
     document.getElementById("evt-tipo").value = tipo;
     document.getElementById("evt-centro-id").value = centroActivo;
-    document.getElementById("evt-titulo").textContent =
-      tipo === "entrega" ? "📦 ¿Qué llegó al centro?" : "🆘 ¿Qué falta en el centro?";
-    document.getElementById("evt-nota").value = "";
+    const esEntrega = tipo === "entrega";
+    document.getElementById("evt-titulo").textContent = esEntrega ? "📦 ¿Qué llegó al centro?" : "🆘 ¿Qué falta en el centro?";
+    document.getElementById("evt-descripcion-label").innerHTML = esEntrega
+      ? "¿Qué llegó exactamente? <span class='req'>*</span>"
+      : "¿Qué falta exactamente? <span class='req'>*</span>";
+    document.getElementById("evt-descripcion").placeholder = esEntrega
+      ? "Ej: 30 cajas de agua, 15 bolsas de ropa para niños..."
+      : "Ej: Faltan medicamentos para niños, necesitamos colchonetas...";
+    document.getElementById("evt-descripcion").value = "";
     document.getElementById("evt-cantidad").value = "moderado";
     document.querySelectorAll("#evt-insumos input").forEach(cb => cb.checked = false);
     document.getElementById("evt-offline-aviso").classList.toggle("hidden", navigator.onLine);
@@ -2036,18 +2042,17 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
   }
 
   async function submitEvento() {
-    const tipo      = document.getElementById("evt-tipo").value;
-    const centroId  = document.getElementById("evt-centro-id").value;
-    const insumos   = [...document.querySelectorAll("#evt-insumos input:checked")].map(cb => cb.value);
-    const cantidad  = document.getElementById("evt-cantidad").value;
-    const nota      = document.getElementById("evt-nota").value.trim();
+    const tipo        = document.getElementById("evt-tipo").value;
+    const centroId    = document.getElementById("evt-centro-id").value;
+    const descripcion = document.getElementById("evt-descripcion").value.trim();
+    const insumos     = [...document.querySelectorAll("#evt-insumos input:checked")].map(cb => cb.value);
+    const cantidad    = document.getElementById("evt-cantidad").value;
 
-    if (!insumos.length) { mostrarToast("Selecciona al menos un insumo.", "err"); return; }
+    if (!descripcion) { mostrarToast("Describe qué llegó o qué falta.", "err"); return; }
 
     const id = generarEventoId(centroId, tipo);
     const evento = {
-      id, centroId, tipo, insumos, cantidad,
-      nota: nota || null,
+      id, centroId, tipo, descripcion, insumos, cantidad,
       voluntario: opEmail || "anonimo",
       ts: Date.now(),
       sincronizado: false

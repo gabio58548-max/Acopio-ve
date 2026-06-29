@@ -179,7 +179,7 @@
         <table class="evt-table">
           <thead>
             <tr>
-              <th>Tipo</th><th>Centro</th><th>Insumos</th><th>Cantidad</th>
+              <th>Tipo</th><th>Centro</th><th>Descripción</th><th>Insumos</th><th>Cantidad</th>
               <th>Voluntario</th><th>Hora</th><th>Sync</th>
             </tr>
           </thead>
@@ -362,6 +362,7 @@ function renderTabla() {
     return `<tr class="${esDedup ? "dedup-warn" : ""}">
       <td><span class="pill pill-${e.tipo}">${e.tipo === "entrega" ? "📦 Recibido" : "🆘 Falta"}</span>${esDedup ? ' <span class="pill pill-offline">dedup</span>' : ""}</td>
       <td>${escHtml(nombre)}</td>
+      <td style="max-width:200px">${escHtml(e.descripcion||"—")}</td>
       <td>${escHtml(insumos)}</td>
       <td>${escHtml(cantLabel)}</td>
       <td><small>${escHtml(e.voluntario||"anónimo")}</small></td>

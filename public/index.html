@@ -372,20 +372,21 @@
         <input type="hidden" id="evt-tipo">
         <input type="hidden" id="evt-centro-id">
         <div class="form-group">
-          <label>¿Qué insumos? <span class="req">*</span></label>
+          <label for="evt-descripcion" id="evt-descripcion-label">¿Qué llegó exactamente? <span class="req">*</span></label>
+          <textarea id="evt-descripcion" rows="3" maxlength="400"
+            placeholder="Ej: 30 cajas de agua, 15 bolsas de ropa para niños..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Tipo de insumo (selecciona los que aplican)</label>
           <div id="evt-insumos" class="check-group check-wrap"></div>
         </div>
         <div class="form-group">
           <label for="evt-cantidad">Cantidad aproximada</label>
-          <select id="evt-cantidad" class="form-select">
-            <option value="poco">Poco (menos de 10 unidades)</option>
-            <option value="moderado" selected>Moderado (10–50 unidades)</option>
-            <option value="mucho">Mucho (más de 50 unidades)</option>
+          <select id="evt-cantidad">
+            <option value="poco">Poco — menos de 10 unidades</option>
+            <option value="moderado" selected>Moderado — 10 a 50 unidades</option>
+            <option value="mucho">Mucho — más de 50 unidades</option>
           </select>
-        </div>
-        <div class="form-group">
-          <label for="evt-nota">Nota (opcional)</label>
-          <textarea id="evt-nota" rows="2" maxlength="300" placeholder="Detalle adicional..."></textarea>
         </div>
         <div id="evt-offline-aviso" class="evt-offline-aviso hidden">
           📵 Sin conexión — se guardará y subirá cuando haya señal
