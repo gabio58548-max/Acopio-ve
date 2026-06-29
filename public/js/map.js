@@ -117,7 +117,7 @@ const MapaAcopio = (() => {
       data: vacio(),
       cluster: true,
       clusterMaxZoom: 11,
-      clusterRadius: 50
+      clusterRadius: 35
     });
 
     // Fuente secundaria: centros NO filtrados (sin clustering)
@@ -155,7 +155,7 @@ const MapaAcopio = (() => {
           ],
           "circle-radius": [
             "step", ["get", "point_count"],
-            22, 15, 30, 40, 38
+            14, 15, 20, 40, 26
           ],
           "circle-stroke-width": 3,
           "circle-stroke-color": "rgba(255,255,255,0.35)"
