@@ -279,6 +279,8 @@
           </div>
         </div>
         <div class="info-row"><span class="info-icon">📦</span><div><div class="info-label">Acepta:</div><div id="p-insumos" class="tags-wrap">—</div></div></div>
+        <div class="info-row" id="p-necesita-row" style="display:none"><span class="info-icon">🆘</span><div><div class="info-label">Necesita urgente:</div><div id="p-necesita" class="tags-wrap"></div></div></div>
+        <div class="info-row" id="p-exceso-row" style="display:none"><span class="info-icon">✅</span><div><div class="info-label">Tiene exceso:</div><div id="p-exceso" class="tags-wrap"></div></div></div>
         <div class="info-row"><span class="info-icon">📞</span><div><div id="p-contacto">—</div><div class="muted" id="p-responsable"></div></div></div>
         <div class="info-row" id="p-horario-row"><span class="info-icon">🕐</span><div id="p-horario">—</div></div>
         <div class="info-row" id="p-notas-row"><span class="info-icon">📝</span><div id="p-notas">—</div></div>
@@ -532,6 +534,14 @@
           <div class="form-group">
             <label for="act-notas">Nota de actualización</label>
             <textarea id="act-notas" rows="2" maxlength="300" placeholder="Qué cambió, necesidades urgentes..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Necesita urgente <span class="muted" style="font-weight:400;font-size:.8em">(selecciona los que faltan)</span></label>
+            <div id="act-necesita" class="check-group check-wrap"></div>
+          </div>
+          <div class="form-group">
+            <label>Tiene exceso <span class="muted" style="font-weight:400;font-size:.8em">(selecciona los que sobran)</span></label>
+            <div id="act-exceso" class="check-group check-wrap"></div>
           </div>
           <!-- Campos extra — solo visibles para operadores -->
           <div class="op-only op-edit-fields">

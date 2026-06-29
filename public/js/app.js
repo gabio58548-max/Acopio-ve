@@ -247,6 +247,20 @@ const App = (() => {
       insumosEl.textContent = "No especificado";
     }
 
+    function renderTagRow(rowId, elId, lista, className) {
+      const row = document.getElementById(rowId);
+      const el  = document.getElementById(elId);
+      if (lista && lista.length) {
+        el.innerHTML = lista.map(v => `<span class="tag ${className}">${escHtml(v)}</span>`).join("");
+        row.style.display = "";
+      } else {
+        el.innerHTML = "";
+        row.style.display = "none";
+      }
+    }
+    renderTagRow("p-necesita-row", "p-necesita", c.necesita, "tag-necesita");
+    renderTagRow("p-exceso-row",   "p-exceso",   c.exceso,   "tag-exceso");
+
     const contactoEl = document.getElementById("p-contacto");
     if (c.contacto && /^\+?[\d\s\-()]+$/.test(c.contacto)) {
       contactoEl.innerHTML = `<a href="tel:${c.contacto.replace(/\s/g,'')}">${escHtml(c.contacto)}</a>`;
@@ -1049,6 +1063,15 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
       cb.checked = insumosList.includes(cb.value);
     });
 
+    const necesitaList = Array.isArray(c.necesita) ? c.necesita : [];
+    document.querySelectorAll("#act-necesita input").forEach(cb => {
+      cb.checked = necesitaList.includes(cb.value);
+    });
+    const excesoList = Array.isArray(c.exceso) ? c.exceso : [];
+    document.querySelectorAll("#act-exceso input").forEach(cb => {
+      cb.checked = excesoList.includes(cb.value);
+    });
+
     // Campos extra para operadores
     if (opEmail) {
       document.getElementById("act-modal-titulo").textContent = "Editar Centro";
@@ -1073,7 +1096,9 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     e.preventDefault();
     const id = document.getElementById("act-id").value;
     const capacidad = document.querySelector('input[name="act-capacidad"]:checked')?.value;
-    const insumos = [...document.querySelectorAll("#act-insumos input:checked")].map(cb => cb.value);
+    const insumos  = [...document.querySelectorAll("#act-insumos input:checked")].map(cb => cb.value);
+    const necesita = [...document.querySelectorAll("#act-necesita input:checked")].map(cb => cb.value);
+    const exceso   = [...document.querySelectorAll("#act-exceso input:checked")].map(cb => cb.value);
 
     if (!capacidad) { mostrarToast("Selecciona la nueva capacidad.", "err"); return; }
 
@@ -1101,7 +1126,9 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     try {
       await API.actualizarCentro(id, {
         capacidad,
-        insumos: insumos.length ? insumos : undefined,
+        insumos:  insumos.length  ? insumos  : null,
+        necesita: necesita.length ? necesita : null,
+        exceso:   exceso.length   ? exceso   : null,
         contacto: document.getElementById("act-contacto").value,
         notas:    document.getElementById("act-notas").value,
         ...extraData
@@ -1699,7 +1726,9 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     [
       { id: "filtro-insumos", esFiltro: true },
       { id: "n-insumos",      esFiltro: false },
-      { id: "act-insumos",    esFiltro: false }
+      { id: "act-insumos",    esFiltro: false },
+      { id: "act-necesita",   esFiltro: false },
+      { id: "act-exceso",     esFiltro: false }
     ].forEach(({ id, esFiltro }) => {
       const container = document.getElementById(id);
       TIPOS_INSUMO.forEach(tipo => {

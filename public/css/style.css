@@ -542,6 +542,8 @@ a { color: var(--primary); }
   border-radius: 12px;
   border: 1px solid var(--border);
 }
+.tag-necesita { background: rgba(231,76,60,.15); color: #E74C3C; border-color: rgba(231,76,60,.4); }
+.tag-exceso   { background: rgba(46,204,113,.15); color: #27AE60; border-color: rgba(46,204,113,.4); }
 
 /* ── Sección movimientos en panel ── */
 .p-mov-section {
