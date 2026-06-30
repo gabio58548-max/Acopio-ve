@@ -402,6 +402,15 @@ const API = (() => {
     invalidarCache();
   }
 
+  async function guardarReporte(payload) {
+    const res = await fetch(`${BASE}/reportes.json`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  }
+
   async function eliminarCentro(id) {
     const res = await fetch(`${BASE}/centros/${id}.json`, { method: "DELETE" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -434,6 +443,7 @@ const API = (() => {
     eliminarCentro,
     escucharCambios,
     reportarCentro,
+    guardarReporte,
     guardarMovimiento,
     cargarMovimientos,
     initSDK() {}   // mantenido por compatibilidad con app.js

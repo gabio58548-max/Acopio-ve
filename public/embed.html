@@ -75,6 +75,18 @@
 <script src="js/map.js"></script>
 <script>
 (async () => {
+  // Protección por token
+  if (EMBED_TOKEN) {
+    const urlToken = new URLSearchParams(location.search).get("token");
+    if (urlToken !== EMBED_TOKEN) {
+      document.body.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;color:rgba(255,255,255,.5)">
+          <span style="font-size:2rem">🔒</span>
+          <span style="font-size:.9rem">Acceso no autorizado</span>
+        </div>`;
+      return;
+    }
+  }
   const DB_URL = FIREBASE_CONFIG.databaseURL;
 
   async function cargar() {

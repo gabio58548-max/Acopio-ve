@@ -106,7 +106,7 @@
 
     <aside id="sidebar" class="sidebar" aria-hidden="true">
       <div class="sidebar-header">
-        <h2>Filtros</h2>
+        <h2>Centros de Acopio</h2>
         <button id="btn-cerrar-sidebar" class="btn-icon-only" aria-label="Cerrar filtros">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -333,6 +333,13 @@
           <button id="btn-panel-reportar" class="btn btn-reportar full-width" title="Reportar un problema con este centro: información incorrecta, cerrado, o no existe">⚠️ Reportar problema</button>
         </div>
         <div id="p-reportes-wrap" class="hidden"><small class="muted" id="p-reportes-txt"></small></div>
+        <div class="panel-foot-row">
+          <label id="btn-foto-usuario-label" class="btn btn-ghost full-width" style="cursor:pointer;justify-content:center;display:flex;align-items:center;gap:6px" title="Subir una foto del estado actual del centro. Será revisada antes de publicarse.">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <span id="btn-foto-usuario-txt">Subir foto</span>
+            <input type="file" id="foto-usuario-input" accept="image/*" capture="environment" style="display:none">
+          </label>
+        </div>
         <!-- Controles solo visibles para operadores -->
         <div id="op-panel-controles" class="op-controles hidden">
           <div class="op-controles-titulo">Controles de operador</div>
@@ -395,6 +402,58 @@
       <div class="modal-foot">
         <button id="btn-cancelar-evento" class="btn btn-ghost">Cancelar</button>
         <button id="btn-submit-evento" class="btn btn-primary">Registrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ CHAT ENTRE CENTROS (solo operadores) ═══ -->
+  <button id="btn-chat" class="btn-chat hidden" title="Chat entre coordinadores de centros" aria-label="Abrir chat">
+    💬
+    <span id="chat-badge" class="chat-badge hidden">0</span>
+  </button>
+  <div id="chat-wrap" class="chat-wrap hidden" role="dialog" aria-label="Chat entre centros">
+    <div class="chat-header">
+      <span>💬 Chat coordinadores</span>
+      <button id="btn-cerrar-chat" class="btn-icon-only">✕</button>
+    </div>
+    <div id="chat-messages" class="chat-messages">
+      <div class="chat-empty">Sin mensajes aún. Sé el primero en escribir.</div>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="Escribe un mensaje..." maxlength="300" autocomplete="off">
+      <button id="btn-chat-enviar" class="btn btn-primary btn-sm">↑</button>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL: REPORTAR PROBLEMA ═══ -->
+  <div id="modal-reportar" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" id="backdrop-reportar"></div>
+    <div class="modal-box modal-sm">
+      <div class="modal-head">
+        <h2>Reportar problema</h2>
+        <button id="btn-cerrar-reportar" class="btn-icon-only">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="muted" style="margin-bottom:12px;font-size:0.88em">Ayúdanos a mantener el mapa actualizado reportando información incorrecta.</p>
+        <div class="form-group">
+          <label for="rpt-tipo">Tipo de problema <span class="req">*</span></label>
+          <select id="rpt-tipo">
+            <option value="">— Selecciona —</option>
+            <option value="info_incorrecta">Información incorrecta</option>
+            <option value="cerrado">Está cerrado / ya no funciona</option>
+            <option value="no_existe">No existe este centro</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="rpt-descripcion">Descripción <span class="req">*</span></label>
+          <textarea id="rpt-descripcion" rows="3" maxlength="400"
+            placeholder="Ej: La dirección es incorrecta, el centro cerró el lunes..."></textarea>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button id="btn-cancelar-reportar" class="btn btn-ghost">Cancelar</button>
+        <button id="btn-submit-reportar" class="btn btn-emergency">Enviar reporte</button>
       </div>
     </div>
   </div>
@@ -473,6 +532,8 @@
       </div>
       <div class="modal-body">
         <form id="form-nuevo" novalidate>
+
+          <p class="form-section-label">Identificación</p>
           <div class="form-group">
             <label for="n-nombre">Nombre del centro <span class="req">*</span></label>
             <input type="text" id="n-nombre" required maxlength="120" placeholder="Ej: Centro Comunitario El Limón">
@@ -487,6 +548,8 @@
               <input type="text" id="n-municipio" required maxlength="80" placeholder="Ej: Girardot">
             </div>
           </div>
+
+          <p class="form-section-label">Ubicación</p>
           <div class="form-group ac-wrap">
             <label for="n-direccion">Dirección <span class="req">*</span></label>
             <div class="ac-input-wrap">
@@ -496,13 +559,11 @@
               <div id="n-dir-spinner" class="ac-spinner hidden"></div>
             </div>
             <ul id="n-dir-lista" class="ac-lista hidden" role="listbox"></ul>
-            <!-- Dirección extra: referencia manual -->
             <input type="text" id="n-dir-extra" maxlength="200"
               placeholder="Referencia adicional (opcional)"
               class="mt-sm" style="font-size:.82rem">
           </div>
           <div class="form-group">
-            <label>Ubicación en el mapa <span class="req">*</span></label>
             <div class="loc-controls">
               <button type="button" id="btn-mi-ubicacion" class="btn btn-ghost btn-sm">📍 Usar mi GPS</button>
               <button type="button" id="btn-seleccionar-mapa" class="btn btn-ghost btn-sm">🗺 Seleccionar en mapa</button>
@@ -519,21 +580,42 @@
               </div>
             </div>
           </div>
+
+          <p class="form-section-label">Estado actual <span class="req">*</span></p>
           <div class="form-group">
-            <label>Capacidad actual <span class="req">*</span></label>
-            <div class="radio-group">
-              <label class="radio-label"><input type="radio" name="n-capacidad" value="disponible" required><span class="badge badge-verde">Disponible</span><span class="radio-desc">Recibe donaciones</span></label>
-              <label class="radio-label"><input type="radio" name="n-capacidad" value="parcial"><span class="badge badge-amarillo">Parcial</span><span class="radio-desc">Recibe con límites</span></label>
-              <label class="radio-label"><input type="radio" name="n-capacidad" value="lleno"><span class="badge badge-rojo">Lleno</span><span class="radio-desc">No recibe más</span></label>
+            <div class="cap-btns" id="cap-btns">
+              <button type="button" class="cap-btn" data-cap="disponible">
+                <span class="cap-dot" style="background:#27AE60"></span>
+                <strong>Disponible</strong>
+                <small>Recibe donaciones</small>
+              </button>
+              <button type="button" class="cap-btn" data-cap="parcial">
+                <span class="cap-dot" style="background:#F39C12"></span>
+                <strong>Parcial</strong>
+                <small>Con límites</small>
+              </button>
+              <button type="button" class="cap-btn" data-cap="lleno">
+                <span class="cap-dot" style="background:#E74C3C"></span>
+                <strong>Lleno</strong>
+                <small>No recibe más</small>
+              </button>
+            </div>
+            <div style="display:none">
+              <input type="radio" name="n-capacidad" value="disponible" id="n-cap-disp">
+              <input type="radio" name="n-capacidad" value="parcial"    id="n-cap-parc">
+              <input type="radio" name="n-capacidad" value="lleno"      id="n-cap-llen">
             </div>
           </div>
+
+          <p class="form-section-label">Insumos que reciben <span class="req">*</span></p>
           <div class="form-group">
-            <label>Insumos que reciben <span class="req">*</span></label>
             <div id="n-insumos" class="check-grid"></div>
           </div>
+
+          <p class="form-section-label">Contacto <span style="font-weight:400;color:var(--muted)">(opcional)</span></p>
           <div class="form-row">
             <div class="form-group">
-              <label for="n-contacto">Teléfono / Contacto</label>
+              <label for="n-contacto">Teléfono</label>
               <input type="text" id="n-contacto" placeholder="+58 424 1234567">
             </div>
             <div class="form-group">
@@ -541,14 +623,17 @@
               <input type="text" id="n-responsable" placeholder="Cruz Roja, Alcaldía...">
             </div>
           </div>
-          <div class="form-group">
-            <label for="n-horario">Horario de atención</label>
-            <input type="text" id="n-horario" placeholder="Lun-Dom 8am-6pm">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="n-horario">Horario</label>
+              <input type="text" id="n-horario" placeholder="Lun-Dom 8am-6pm">
+            </div>
           </div>
           <div class="form-group">
             <label for="n-notas">Notas adicionales</label>
             <textarea id="n-notas" rows="2" maxlength="500" placeholder="Necesidades urgentes, instrucciones..."></textarea>
           </div>
+
         </form>
       </div>
       <div class="modal-foot">

@@ -57,6 +57,34 @@
       ".write": true
     },
 
+    "eventos": {
+      ".read":  true,
+      ".write": true
+    },
+
+    "reportes": {
+      ".read":  true,
+      ".write": true
+    },
+
+    "fotos_pendientes": {
+      ".read":  true,
+      ".write": true
+    },
+
+    "chat": {
+      ".read":  true,
+      ".write": true,
+      "$msgId": {
+        ".validate": "newData.hasChildren(['opEmail','senderLabel','texto','ts'])",
+        "opEmail":      { ".validate": "newData.isString() && newData.val().length > 0" },
+        "senderLabel":  { ".validate": "newData.isString() && newData.val().length > 0" },
+        "texto":        { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 300" },
+        "ts":           { ".validate": "newData.isNumber()" },
+        "$other":       { ".validate": false }
+      }
+    },
+
     "otps": {
       "$emailKey": {
         ".read":  true,

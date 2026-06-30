@@ -343,13 +343,18 @@ const App = (() => {
   /* ══════════════════════════════════════════
      FORMULARIO: NUEVO CENTRO
      ══════════════════════════════════════════ */
+  function lockBody()   { document.body.classList.add("modal-open"); }
+  function unlockBody() { document.body.classList.remove("modal-open"); }
+
   function abrirModalNuevo() {
     document.getElementById("form-nuevo").reset();
     document.getElementById("n-lat").value = "";
     document.getElementById("n-lng").value = "";
     document.getElementById("n-dir-lista").classList.add("hidden");
     document.getElementById("n-dir-lista").innerHTML = "";
+    document.querySelectorAll(".cap-btn").forEach(b => b.className = "cap-btn");
     document.getElementById("modal-nuevo").classList.remove("hidden");
+    lockBody();
   }
 
   function cerrarModalNuevo() {
@@ -359,6 +364,7 @@ const App = (() => {
     MapaAcopio.desactivarSeleccion();
     MapaAcopio.quitarMarcadorTemp();
     document.getElementById("loc-selecting-hint").classList.add("hidden");
+    unlockBody();
   }
 
   async function submitNuevoCentro(e) {
@@ -666,10 +672,12 @@ const App = (() => {
     document.getElementById("mov-label-persona").textContent = "Nombre del donante *";
     document.getElementById("mov-error").classList.add("hidden");
     document.getElementById("modal-movimiento").classList.remove("hidden");
+    lockBody();
   }
 
   function cerrarModalMovimiento() {
     document.getElementById("modal-movimiento").classList.add("hidden");
+    unlockBody();
   }
 
   async function guardarMovimiento() {
@@ -862,16 +870,158 @@ const App = (() => {
     mostrarToast(`${centros.length} centros exportados.`, "ok");
   }
 
+  async function subirFotoPendiente(file) {
+    if (!file || !centroActivo) return;
+    const txt = document.getElementById("btn-foto-usuario-txt");
+    txt.textContent = "Subiendo...";
+    try {
+      const url = await subirFoto(file, centroActivo);
+      const c   = todosLosCentros.find(x => x.id === centroActivo);
+      await fetch(`${FIREBASE_CONFIG.databaseURL}/fotos_pendientes.json`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          centroId:    centroActivo,
+          centroNombre: c?.nombre || centroActivo,
+          url,
+          fecha: new Date().toISOString()
+        })
+      });
+      mostrarToast("Foto enviada para revisión. ¡Gracias!", "ok");
+    } catch (e) {
+      mostrarToast("Error al subir foto: " + (e.message || "sin conexión"), "err");
+    } finally {
+      txt.textContent = "Subir foto";
+      document.getElementById("foto-usuario-input").value = "";
+    }
+  }
+
+  /* ══════════════════════════════════════════
+     CHAT ENTRE CENTROS
+     ══════════════════════════════════════════ */
+  let chatInterval  = null;
+  let chatLastTs    = 0;
+  let chatNuevos    = 0;
+
+  function toggleChat() {
+    const wrap = document.getElementById("chat-wrap");
+    wrap.classList.contains("hidden") ? abrirChat() : cerrarChat();
+  }
+
+  function abrirChat() {
+    document.getElementById("chat-wrap").classList.remove("hidden");
+    chatNuevos = 0;
+    actualizarBadgeChat();
+    cargarMensajesChat(true);
+    chatInterval = chatInterval || setInterval(() => cargarMensajesChat(false), 5000);
+    setTimeout(() => document.getElementById("chat-input").focus(), 100);
+  }
+
+  function cerrarChat() {
+    document.getElementById("chat-wrap").classList.add("hidden");
+    if (chatInterval) { clearInterval(chatInterval); chatInterval = null; }
+  }
+
+  function actualizarBadgeChat() {
+    const badge = document.getElementById("chat-badge");
+    if (chatNuevos > 0 && document.getElementById("chat-wrap").classList.contains("hidden")) {
+      badge.textContent = chatNuevos; badge.classList.remove("hidden");
+    } else {
+      badge.classList.add("hidden");
+    }
+  }
+
+  async function cargarMensajesChat(scroll) {
+    try {
+      const url = `${FIREBASE_CONFIG.databaseURL}/chat.json?orderBy="ts"&limitToLast=60`;
+      const res  = await fetch(url);
+      const data = await res.json();
+      if (!data) return;
+
+      const msgs = Object.values(data).sort((a, b) => a.ts - b.ts);
+      const container = document.getElementById("chat-messages");
+      const maxTs = msgs.length ? msgs[msgs.length - 1].ts : 0;
+
+      if (maxTs <= chatLastTs) return;
+
+      const nuevos = msgs.filter(m => m.ts > chatLastTs);
+      if (chatLastTs > 0) chatNuevos += nuevos.length;
+      chatLastTs = maxTs;
+      actualizarBadgeChat();
+
+      container.innerHTML = msgs.map(m => {
+        const esMio = m.opEmail === opEmail;
+        const hora  = new Date(m.ts).toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" });
+        return `<div class="chat-msg ${esMio ? "chat-msg-mine" : "chat-msg-other"}">
+          <div>${escHtml(m.texto)}</div>
+          <div class="chat-msg-meta">${esMio ? "" : escHtml(m.senderLabel) + " · "}${hora}</div>
+        </div>`;
+      }).join("") || `<div class="chat-empty">Sin mensajes aún. Sé el primero en escribir.</div>`;
+
+      if (scroll) container.scrollTop = container.scrollHeight;
+    } catch (_) {}
+  }
+
+  async function enviarMensajeChat() {
+    if (!opEmail) return;
+    const input = document.getElementById("chat-input");
+    const texto = input.value.trim();
+    if (!texto) return;
+
+    input.value = "";
+    const senderLabel = opEmail.split("@")[0];
+
+    try {
+      await fetch(`${FIREBASE_CONFIG.databaseURL}/chat.json`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ opEmail, senderLabel, texto, ts: Date.now() })
+      });
+      await cargarMensajesChat(true);
+    } catch (_) {
+      mostrarToast("Error al enviar mensaje.", "err");
+      input.value = texto;
+    }
+  }
+
   /* ══════════════════════════════════════════
      REPORTAR PROBLEMA
      ══════════════════════════════════════════ */
-  async function reportarCentroProblema(id) {
+  function abrirModalReportar() {
+    document.getElementById("rpt-tipo").value = "";
+    document.getElementById("rpt-descripcion").value = "";
+    document.getElementById("modal-reportar").classList.remove("hidden");
+    document.getElementById("rpt-tipo").focus();
+    lockBody();
+  }
+
+  function cerrarModalReportar() {
+    document.getElementById("modal-reportar").classList.add("hidden");
+    unlockBody();
+  }
+
+  async function submitReportarProblema() {
+    const tipo       = document.getElementById("rpt-tipo").value;
+    const descripcion = document.getElementById("rpt-descripcion").value.trim();
+    if (!tipo)        { mostrarToast("Selecciona el tipo de problema.", "err"); return; }
+    if (!descripcion) { mostrarToast("Escribe una descripción.", "err"); return; }
+
+    const btn = document.getElementById("btn-submit-reportar");
+    btn.disabled = true; btn.textContent = "Enviando...";
+
     try {
-      await API.reportarCentro(id);
+      await API.guardarReporte({
+        centroId:    centroActivo,
+        tipo,
+        descripcion,
+        fecha: new Date().toISOString()
+      });
+      cerrarModalReportar();
       mostrarToast("Reporte enviado. Gracias por ayudar.", "ok");
-      await cargarDatos(false);
     } catch (e) {
       mostrarToast("No se pudo enviar el reporte.", "err");
+    } finally {
+      btn.disabled = false; btn.textContent = "Enviar reporte";
     }
   }
 
@@ -1089,10 +1239,12 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     }
 
     document.getElementById("modal-actualizar").classList.remove("hidden");
+    lockBody();
   }
 
   function cerrarModalActualizar() {
     document.getElementById("modal-actualizar").classList.add("hidden");
+    unlockBody();
   }
 
   async function submitActualizarCentro(e) {
@@ -1308,6 +1460,11 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
       el.addEventListener("click", () => { abrirPanel(el.dataset.id); cerrarSidebar(); });
       el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") abrirPanel(el.dataset.id); });
     });
+    container.style.opacity = "0";
+    requestAnimationFrame(() => {
+      container.style.transition = "opacity .2s";
+      container.style.opacity = "1";
+    });
   }
 
   function actualizarStats(filtrados) {
@@ -1413,19 +1570,22 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     document.getElementById("admin-pass-input").value = "";
     document.getElementById("modal-admin").classList.remove("hidden");
     setTimeout(() => document.getElementById("admin-pass-input").focus(), 80);
+    lockBody();
   }
 
   function cerrarModalAdmin() {
     document.getElementById("modal-admin").classList.add("hidden");
     document.getElementById("admin-pass-input").value = "";
+    unlockBody();
   }
 
-  function verificarAdmin() {
+  async function verificarAdmin() {
     const pass = document.getElementById("admin-pass-input").value;
-    if (pass === ADMIN_PASSWORD) {
-      const recordar = true; // admin siempre recuerda 30 días
+    const buf  = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pass));
+    const hash = [...new Uint8Array(buf)].map(x => x.toString(16).padStart(2, "0")).join("");
+    if (hash === ADMIN_PASSWORD_HASH) {
       localStorage.setItem(OP_SESSION_KEY, JSON.stringify({
-        email: ADMIN_EMAIL, ts: Date.now(), recordar, esAdmin: true
+        email: ADMIN_EMAIL, ts: Date.now(), recordar: true, esAdmin: true
       }));
       cerrarModalAdmin();
       mostrarModoOperador(ADMIN_EMAIL);
@@ -1458,10 +1618,12 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     document.getElementById("op-step-2").classList.add("hidden");
     document.getElementById("modal-op").classList.remove("hidden");
     setTimeout(() => document.getElementById("op-email-input").focus(), 80);
+    lockBody();
   }
 
   function cerrarModalOperadores() {
     document.getElementById("modal-op").classList.add("hidden");
+    unlockBody();
   }
 
   async function enviarCodigoOperador() {
@@ -1568,6 +1730,7 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     document.body.classList.add("op-mode");
     const btnDash = document.getElementById("btn-dashboard");
     if (btnDash) btnDash.style.display = "";
+    document.getElementById("btn-chat").classList.remove("hidden");
   }
 
   function cerrarSesionOperador() {
@@ -1579,6 +1742,8 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     document.body.classList.remove("op-mode");
     const btnDash = document.getElementById("btn-dashboard");
     if (btnDash) btnDash.style.display = "none";
+    document.getElementById("btn-chat").classList.add("hidden");
+    cerrarChat();
     mostrarToast("Sesión de operador cerrada.", "info");
   }
 
@@ -1771,6 +1936,19 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     document.getElementById("btn-cancelar-nuevo").addEventListener("click", cerrarModalNuevo);
     document.getElementById("backdrop-nuevo").addEventListener("click", cerrarModalNuevo);
     document.getElementById("form-nuevo").addEventListener("submit", submitNuevoCentro);
+    document.getElementById("cap-btns").addEventListener("click", e => {
+      const btn = e.target.closest(".cap-btn");
+      if (!btn) return;
+      const cap = btn.dataset.cap;
+      document.querySelectorAll(".cap-btn").forEach(b => {
+        b.className = "cap-btn";
+      });
+      btn.classList.add(`selected-${cap === "disponible" ? "disp" : cap === "parcial" ? "parc" : "llen"}`);
+      const radio = document.getElementById(
+        cap === "disponible" ? "n-cap-disp" : cap === "parcial" ? "n-cap-parc" : "n-cap-llen"
+      );
+      if (radio) radio.checked = true;
+    });
     document.getElementById("btn-mi-ubicacion").addEventListener("click", usarMiUbicacion);
     document.getElementById("btn-seleccionar-mapa").addEventListener("click", activarSeleccionUbicacion);
     document.getElementById("btn-cancelar-seleccion").addEventListener("click", cancelarSeleccionUbicacion);
@@ -1785,7 +1963,7 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     }
     panelShareBtn.addEventListener("click", () => centroActivo && compartirCentro(centroActivo));
     document.getElementById("btn-panel-qr").addEventListener("click",       () => centroActivo && mostrarQR(centroActivo));
-    document.getElementById("btn-panel-reportar").addEventListener("click", () => centroActivo && reportarCentroProblema(centroActivo));
+    document.getElementById("btn-panel-reportar").addEventListener("click", () => centroActivo && abrirModalReportar());
 
     // Actualizar
     document.getElementById("btn-cerrar-actualizar").addEventListener("click", cerrarModalActualizar);
@@ -1812,7 +1990,8 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     document.getElementById("btn-exportar-pdf").addEventListener("click", exportarPDF);
     document.getElementById("btn-difundir-wa").addEventListener("click", abrirModalWA);
     document.getElementById("btn-widget").addEventListener("click", () => {
-      const codigo = `<iframe src="https://acopio-ve-2026.web.app/embed.html" width="100%" height="500" style="border:none;border-radius:12px" title="Mapa de Centros de Acopio Venezuela"></iframe>`;
+      const tokenParam = EMBED_TOKEN ? `?token=${EMBED_TOKEN}` : "";
+      const codigo = `<iframe src="https://acopio-ve-2026.web.app/embed.html${tokenParam}" width="100%" height="500" style="border:none;border-radius:12px" title="Mapa de Centros de Acopio Venezuela"></iframe>`;
       navigator.clipboard.writeText(codigo).then(() => {
         mostrarToast("Código del widget copiado. Pégalo en tu sitio web.", "ok");
       }).catch(() => {
@@ -1874,6 +2053,10 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     document.getElementById("op-foto-input").addEventListener("change", e => {
       const file = e.target.files?.[0];
       if (file) opAgregarFoto(file);
+    });
+    document.getElementById("foto-usuario-input").addEventListener("change", e => {
+      const file = e.target.files?.[0];
+      if (file) subirFotoPendiente(file);
     });
     document.getElementById("btn-op-eliminar").addEventListener("click",        opMostrarConfirmEliminar);
     document.getElementById("btn-op-eliminar-ok").addEventListener("click",     opEliminarCentro);
@@ -1937,7 +2120,7 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     })();
 
     enlazarFiltros();
-    enlazarEventos();
+    enlazarModalEvento();
     iniciarAutocompleteDireccion();
   }
 
@@ -1970,6 +2153,17 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     document.getElementById("loading-state").classList.remove("hidden");
     document.getElementById("error-state").classList.add("hidden");
     document.getElementById("loading-overlay").style.display = "flex";
+    const SKEL = `<div class="skeleton-card">
+      <div class="skeleton sk-line sk-a"></div>
+      <div class="skeleton sk-line sk-b"></div>
+      <div class="skeleton sk-line sk-c"></div>
+    </div>`;
+    const lista = document.getElementById("lista-items");
+    if (lista) lista.innerHTML = Array(6).fill(SKEL).join("");
+    ["stat-total","stat-disponibles","stat-parciales","stat-llenos"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = "—";
+    });
   }
 
   function ocultarLoading() {
@@ -2035,10 +2229,12 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     document.querySelectorAll("#evt-insumos input").forEach(cb => cb.checked = false);
     document.getElementById("evt-offline-aviso").classList.toggle("hidden", navigator.onLine);
     document.getElementById("modal-evento").classList.remove("hidden");
+    lockBody();
   }
 
   function cerrarModalEvento() {
     document.getElementById("modal-evento").classList.add("hidden");
+    unlockBody();
   }
 
   async function submitEvento() {
@@ -2113,7 +2309,7 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     if (subidos > 0) mostrarToast(`${subidos} evento(s) sincronizado(s).`, "ok");
   }
 
-  function enlazarEventos() {
+  function enlazarModalEvento() {
     // Poblar checkboxes de insumos
     const container = document.getElementById("evt-insumos");
     if (container && !container.children.length) {
@@ -2131,6 +2327,18 @@ Comparte con familiares y comunidades que necesiten ayuda 🙏`;
     document.getElementById("btn-cancelar-evento").addEventListener("click", cerrarModalEvento);
     document.getElementById("backdrop-evento").addEventListener("click", cerrarModalEvento);
     document.getElementById("btn-submit-evento").addEventListener("click", submitEvento);
+
+    document.getElementById("btn-cerrar-reportar").addEventListener("click", cerrarModalReportar);
+    document.getElementById("btn-cancelar-reportar").addEventListener("click", cerrarModalReportar);
+    document.getElementById("backdrop-reportar").addEventListener("click", cerrarModalReportar);
+    document.getElementById("btn-submit-reportar").addEventListener("click", submitReportarProblema);
+
+    document.getElementById("btn-chat").addEventListener("click", toggleChat);
+    document.getElementById("btn-cerrar-chat").addEventListener("click", cerrarChat);
+    document.getElementById("btn-chat-enviar").addEventListener("click", enviarMensajeChat);
+    document.getElementById("chat-input").addEventListener("keydown", e => {
+      if (e.key === "Enter") { e.preventDefault(); enviarMensajeChat(); }
+    });
 
     // Sincronizar al recuperar conexión
     window.addEventListener("online", sincronizarEventosOffline);

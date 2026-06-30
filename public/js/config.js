@@ -85,8 +85,8 @@ const VE_ZOOM   = 6;
 let EMAILJS_PUBLIC_KEY  = null;
 let EMAILJS_SERVICE_ID  = null;
 let EMAILJS_TEMPLATE_ID = null;
-let ADMIN_EMAIL    = null;
-let ADMIN_PASSWORD = null;
+let ADMIN_EMAIL         = null;
+let ADMIN_PASSWORD_HASH = null;
 
 /* Correos autorizados como operadores (reciben OTP por correo) */
 const OPERADORES_EMAILS = [
@@ -100,4 +100,5 @@ const OPERADORES_EMAILS = [
    2. Ve a https://api.imgbb.com y copia tu API key
    3. Ponla en config.local.js: IMGBB_API_KEY = "tu_key"
    ──────────────────────────────────────────────── */
-let IMGBB_API_KEY = null;
+let IMGBB_API_KEY  = null;
+let EMBED_TOKEN    = null;   // Definir en config.local.js: EMBED_TOKEN = "tu-token-secreto"

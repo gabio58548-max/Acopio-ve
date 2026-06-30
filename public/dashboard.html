@@ -114,6 +114,20 @@
     .pill-sync     { background: rgba(41,128,185,.2); color: var(--azul); }
     .dedup-warn    { background: rgba(231,76,60,.15); border-left: 3px solid var(--rojo); }
 
+    /* FOTOS PENDIENTES */
+    .fotos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+    .foto-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden;
+    }
+    .foto-card img { width: 100%; height: 170px; object-fit: cover; display: block; }
+    .foto-card-info { padding: 10px 12px; }
+    .foto-card-nombre { font-weight: 600; font-size: .88rem; }
+    .foto-card-fecha { font-size: .75rem; color: var(--muted); margin: 2px 0 8px; }
+    .foto-card-actions { display: flex; gap: 6px; }
+    .dbtn-aprobar { background: rgba(46,204,113,.2); color: var(--verde); }
+    .dbtn-rechazar { background: rgba(231,76,60,.15); color: var(--rojo); }
+
     /* EMPTY */
     .empty { padding: 40px; text-align: center; color: var(--muted); }
 
@@ -138,6 +152,8 @@
     <h1>📊 Dashboard — Acopio VE</h1>
     <button class="hbtn active" id="tab-dedup" onclick="mostrarTab('dedup')">🚨 Alertas</button>
     <button class="hbtn" id="tab-eventos" onclick="mostrarTab('eventos')">📋 Todos los eventos</button>
+    <button class="hbtn" id="tab-fotos" onclick="mostrarTab('fotos')">📷 Fotos <span id="fotos-badge" style="display:none;background:var(--amar);color:#000;border-radius:10px;padding:1px 7px;font-size:.72rem;font-weight:700;margin-left:4px"></span></button>
+    <button class="hbtn" id="tab-chat" onclick="mostrarTab('chat')">💬 Chat</button>
     <button class="hbtn" onclick="cargarDatos()">↺ Actualizar</button>
     <a href="index.html" class="hbtn">← Volver al mapa</a>
   </header>
@@ -148,6 +164,7 @@
     <div class="stat-card rojo"><div class="num" id="s-necesidades">—</div><div class="lbl">Necesidades</div></div>
     <div class="stat-card amar"><div class="num" id="s-dedup">—</div><div class="lbl">Alertas dedup</div></div>
     <div class="stat-card"><div class="num" id="s-centros">—</div><div class="lbl">Centros con eventos</div></div>
+    <div class="stat-card amar" style="cursor:pointer" onclick="mostrarTab('fotos')"><div class="num" id="s-fotos">—</div><div class="lbl">Fotos pendientes</div></div>
   </div>
 
   <div class="content">
@@ -189,14 +206,38 @@
       <div id="tabla-empty" class="empty" style="display:none">Sin eventos en este período.</div>
     </div>
 
+    <!-- TAB CHAT -->
+    <div id="tab-chat-content" style="display:none">
+      <div class="section-title">💬 Chat entre coordinadores de centros</div>
+      <div style="max-width:680px;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        <div id="dash-chat-msgs" style="height:380px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px">
+          <div class="empty">Cargando mensajes...</div>
+        </div>
+        <div style="display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border)">
+          <input type="text" id="dash-chat-input" placeholder="Escribe un mensaje como admin..." maxlength="300"
+            style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--text);font-size:.85rem;flex:1"
+            onkeydown="if(event.key==='Enter')enviarMensajeDash()">
+          <button class="dbtn dbtn-ok" onclick="enviarMensajeDash()" style="padding:8px 16px;border-radius:8px">Enviar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB FOTOS -->
+    <div id="tab-fotos-content" style="display:none">
+      <div class="section-title">📷 Fotos enviadas por voluntarios — pendientes de revisión</div>
+      <div class="fotos-grid" id="fotos-grid"><div class="spinner"></div></div>
+      <div id="fotos-empty" class="empty" style="display:none">Sin fotos pendientes de revisión.</div>
+    </div>
+
   </div>
 </div>
 
 <script src="js/config.js"></script>
 <script>
 const DB = FIREBASE_CONFIG.databaseURL;
-let todos = [];       // todos los centros
-let eventos = [];     // todos los eventos
+let todos = {};
+let eventos = [];
+let fotosPendientes = [];
 let resueltos = new Set(JSON.parse(localStorage.getItem("acopio_resueltos") || "[]"));
 
 // ── AUTH ──
@@ -218,19 +259,21 @@ document.getElementById("login-pass").addEventListener("keydown", e => { if (e.k
 
 // ── TABS ──
 function mostrarTab(tab) {
-  document.getElementById("tab-dedup-content").style.display  = tab === "dedup"    ? "" : "none";
-  document.getElementById("tab-eventos-content").style.display = tab === "eventos"  ? "" : "none";
-  document.getElementById("tab-dedup").classList.toggle("active",  tab === "dedup");
-  document.getElementById("tab-eventos").classList.toggle("active", tab === "eventos");
+  ["dedup","eventos","fotos","chat"].forEach(t => {
+    document.getElementById(`tab-${t}-content`).style.display = tab === t ? "" : "none";
+    document.getElementById(`tab-${t}`).classList.toggle("active", tab === t);
+  });
+  if (tab === "chat") cargarChatDash();
 }
 
 // ── CARGA ──
 async function cargarDatos() {
   try {
-    const [centrosRG, centrosFB, evtsRaw] = await Promise.all([
+    const [centrosRG, centrosFB, evtsRaw, fotosRaw] = await Promise.all([
       fetch(`${DB}/rg_centros.json`).then(r => r.json()).catch(() => ({})),
       fetch(`${DB}/centros.json`).then(r => r.json()).catch(() => ({})),
-      fetch(`${DB}/eventos.json`).then(r => r.json()).catch(() => ({}))
+      fetch(`${DB}/eventos.json`).then(r => r.json()).catch(() => ({})),
+      fetch(`${DB}/fotos_pendientes.json`).then(r => r.json()).catch(() => ({}))
     ]);
 
     const centrosMap = {};
@@ -239,10 +282,12 @@ async function cargarDatos() {
     todos = centrosMap;
 
     eventos = Object.values(evtsRaw || {}).sort((a,b) => b.ts - a.ts);
+    fotosPendientes = Object.entries(fotosRaw || {}).map(([key, val]) => ({ key, ...val }));
 
     renderStats();
     renderDedup();
     renderTabla();
+    renderFotos();
   } catch (e) {
     console.error(e);
   }
@@ -256,6 +301,14 @@ function renderStats() {
   document.getElementById("s-entregas").textContent = hoy_evts.filter(e => e.tipo === "entrega").length;
   document.getElementById("s-necesidades").textContent = hoy_evts.filter(e => e.tipo === "necesidad").length;
   document.getElementById("s-centros").textContent = new Set(hoy_evts.map(e => e.centroId)).size;
+  document.getElementById("s-fotos").textContent = fotosPendientes.length;
+  const badge = document.getElementById("fotos-badge");
+  if (fotosPendientes.length > 0) {
+    badge.textContent = fotosPendientes.length;
+    badge.style.display = "";
+  } else {
+    badge.style.display = "none";
+  }
 }
 
 // ── DEDUPLICACIÓN ──
@@ -374,6 +427,113 @@ function renderTabla() {
 
 function escHtml(s) {
   return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── FOTOS ──
+function renderFotos() {
+  const grid  = document.getElementById("fotos-grid");
+  const empty = document.getElementById("fotos-empty");
+  if (!fotosPendientes.length) {
+    grid.innerHTML = "";
+    empty.style.display = "";
+    return;
+  }
+  empty.style.display = "none";
+  grid.innerHTML = fotosPendientes.map(f => {
+    const fecha = f.fecha ? new Date(f.fecha).toLocaleString("es-VE", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" }) : "—";
+    return `
+      <div class="foto-card" id="foto-card-${f.key}">
+        <a href="${escHtml(f.url)}" target="_blank"><img src="${escHtml(f.url)}" alt="Foto del centro" loading="lazy"></a>
+        <div class="foto-card-info">
+          <div class="foto-card-nombre">${escHtml(f.centroNombre || f.centroId)}</div>
+          <div class="foto-card-fecha">${fecha}</div>
+          <div class="foto-card-actions">
+            <button class="dbtn dbtn-aprobar" onclick="aprobarFoto('${f.key}','${f.centroId}','${escHtml(f.url)}')">✓ Aprobar</button>
+            <button class="dbtn dbtn-rechazar" onclick="rechazarFoto('${f.key}')">✕ Rechazar</button>
+          </div>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+async function aprobarFoto(key, centroId, url) {
+  const card = document.getElementById(`foto-card-${key}`);
+  if (card) card.style.opacity = "0.5";
+  try {
+    // Obtener fotos actuales del centro (solo Firebase, no RG)
+    const esRG = centroId.includes("-") && centroId.length > 30;
+    if (!esRG) {
+      const r = await fetch(`${DB}/centros/${centroId}/fotos.json`);
+      const actuales = (await r.json()) || [];
+      const nuevas = Array.isArray(actuales) ? [...actuales, url] : [url];
+      await fetch(`${DB}/centros/${centroId}/fotos.json`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nuevas)
+      });
+    }
+    await fetch(`${DB}/fotos_pendientes/${key}.json`, { method: "DELETE" });
+    fotosPendientes = fotosPendientes.filter(f => f.key !== key);
+    renderFotos();
+    renderStats();
+  } catch(e) {
+    alert("Error al aprobar: " + e.message);
+    if (card) card.style.opacity = "1";
+  }
+}
+
+async function rechazarFoto(key) {
+  if (!confirm("¿Rechazar y eliminar esta foto?")) return;
+  const card = document.getElementById(`foto-card-${key}`);
+  if (card) card.style.opacity = "0.5";
+  try {
+    await fetch(`${DB}/fotos_pendientes/${key}.json`, { method: "DELETE" });
+    fotosPendientes = fotosPendientes.filter(f => f.key !== key);
+    renderFotos();
+    renderStats();
+  } catch(e) {
+    alert("Error al rechazar: " + e.message);
+    if (card) card.style.opacity = "1";
+  }
+}
+
+// ── CHAT ──
+let chatMsgs = [];
+async function cargarChatDash() {
+  const container = document.getElementById("dash-chat-msgs");
+  try {
+    const res  = await fetch(`${DB}/chat.json?orderBy="ts"&limitToLast=80`);
+    const data = await res.json();
+    chatMsgs = data ? Object.values(data).sort((a,b) => a.ts - b.ts) : [];
+    if (!chatMsgs.length) {
+      container.innerHTML = `<div class="empty">Sin mensajes aún.</div>`;
+      return;
+    }
+    container.innerHTML = chatMsgs.map(m => {
+      const hora = new Date(m.ts).toLocaleString("es-VE", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+      return `<div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 12px;font-size:.84rem">
+        <span style="font-weight:600;color:var(--azul)">${escHtml(m.senderLabel)}</span>
+        <span style="color:var(--muted);font-size:.72rem;margin-left:6px">${hora}</span>
+        <div style="margin-top:3px;color:var(--text)">${escHtml(m.texto)}</div>
+      </div>`;
+    }).join("");
+    container.scrollTop = container.scrollHeight;
+  } catch(e) {
+    container.innerHTML = `<div class="empty">Error al cargar chat.</div>`;
+  }
+}
+
+async function enviarMensajeDash() {
+  const input = document.getElementById("dash-chat-input");
+  const texto = input.value.trim();
+  if (!texto) return;
+  input.value = "";
+  try {
+    await fetch(`${DB}/chat.json`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ opEmail: "admin@dashboard", senderLabel: "Admin", texto, ts: Date.now() })
+    });
+    await cargarChatDash();
+  } catch(e) { alert("Error al enviar: " + e.message); input.value = texto; }
 }
 
 // Auto-refresh cada 60s
