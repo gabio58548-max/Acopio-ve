@@ -1,5 +1,5 @@
 /**
- * ACOPIO VE — Service Worker v23
+ * ACOPIO VE — Service Worker v27
  * Estrategia:
  *   - App (HTML/JS/CSS): NETWORK-FIRST → siempre código fresco
  *   - Librerías locales (Firebase SDK, MapLibre GL, iconos): CACHE-FIRST → carga rápida
@@ -7,7 +7,7 @@
  *   - Firebase RTDB y Storage: siempre red, nunca caché
  */
 
-const CACHE = "acopio-ve-v25";
+const CACHE = "acopio-ve-v30";
 
 const CACHE_FIRST_LOCAL = [
   "/lib/firebase-app.js",
