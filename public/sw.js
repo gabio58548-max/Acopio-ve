@@ -7,7 +7,7 @@
  *   - Firebase RTDB y Storage: siempre red, nunca caché
  */
 
-const CACHE = "acopio-ve-v30";
+const CACHE = "acopio-ve-v31";
 
 const CACHE_FIRST_LOCAL = [
   "/lib/firebase-app.js",
